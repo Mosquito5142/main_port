@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* โหมดสว่าง (ค่าเริ่มต้น) — greengradientnaturefood */
+  --mist: 232 245 233; /* #E8F5E9 พื้นอ่อน/hover */
+  --leaf: 165 214 167; /* #A5D6A7 เส้นขอบ */
+  --grass: 102 187 106; /* #66BB6A สีเน้น */
+  --forest: 27 94 32; /* #1B5E20 ตัวหนังสือหลัก */
+  --surface: 255 255 255; /* พื้นการ์ด/อินพุต */
+  --body-bg-1: rgba(165, 214, 167, 0.55);
+  --body-bg-2: rgba(102, 187, 106, 0.35);
+  --body-bg-3-from: #f6fbf6;
+  --body-bg-3-to: #e8f5e9;
+  --scrollbar-track: rgba(232, 245, 233, 0.6);
+  --scrollbar-thumb: rgba(102, 187, 106, 0.55);
+  --scrollbar-thumb-hover: rgba(27, 94, 32, 0.6);
+}
+
+/* โหมดมืดตามการตั้งค่าระบบ — ใช้เมื่อผู้ใช้ไม่ได้กด toggle เลือกเอง (ไม่มี data-theme="light") */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --mist: 26 38 28; /* พื้นอ่อน/hover แบบมืด */
+    --leaf: 62 92 64; /* เส้นขอบแบบมืด */
+    --grass: 129 199 132; /* สีเน้น สว่างขึ้นให้อ่านง่ายบนพื้นมืด */
+    --forest: 200 230 201; /* ตัวหนังสือหลัก พลิกเป็นสีอ่อนบนพื้นมืด */
+    --surface: 20 28 22; /* พื้นการ์ด/อินพุต */
+    --body-bg-1: rgba(46, 90, 50, 0.4);
+    --body-bg-2: rgba(27, 60, 32, 0.5);
+    --body-bg-3-from: #0e1710;
+    --body-bg-3-to: #10190f;
+    --scrollbar-track: rgba(20, 28, 22, 0.6);
+    --scrollbar-thumb: rgba(102, 187, 106, 0.45);
+    --scrollbar-thumb-hover: rgba(129, 199, 132, 0.6);
+  }
+}
+
+/* โหมดมืดที่ผู้ใช้กดเลือกเอง (toggle) — ชนะทั้ง prefers-color-scheme และค่าเริ่มต้น */
+:root[data-theme='dark'] {
+  --mist: 26 38 28;
+  --leaf: 62 92 64;
+  --grass: 129 199 132;
+  --forest: 200 230 201;
+  --surface: 20 28 22;
+  --body-bg-1: rgba(46, 90, 50, 0.4);
+  --body-bg-2: rgba(27, 60, 32, 0.5);
+  --body-bg-3-from: #0e1710;
+  --body-bg-3-to: #10190f;
+  --scrollbar-track: rgba(20, 28, 22, 0.6);
+  --scrollbar-thumb: rgba(102, 187, 106, 0.45);
+  --scrollbar-thumb-hover: rgba(129, 199, 132, 0.6);
+}
+
+@layer base {
+  html,
+  body {
+    @apply antialiased;
+  }
+  body {
+    color: rgb(var(--forest));
+    background:
+      radial-gradient(1100px 620px at 8% -10%, var(--body-bg-1), transparent 60%),
+      radial-gradient(900px 520px at 105% 0%, var(--body-bg-2), transparent 55%),
+      linear-gradient(180deg, var(--body-bg-3-from) 0%, var(--body-bg-3-to) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  ::selection {
+    background: rgba(102, 187, 106, 0.35);
+  }
+  input,
+  select,
+  textarea {
+    @apply outline-none;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-leaf/60 bg-surface/80 backdrop-blur-sm shadow-leafy;
+  }
+  .card-pad {
+    @apply p-5;
+  }
+  .card-title {
+    @apply text-sm font-semibold uppercase tracking-wider text-forest/70;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold
+           transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn text-white shadow-leafy hover:shadow-leafy-lg hover:-translate-y-px;
+    background-image: linear-gradient(135deg, #66bb6a 0%, #1b5e20 100%);
+  }
+  .btn-soft {
+    @apply btn bg-mist text-forest border border-leaf hover:bg-leaf/60;
+  }
+  .btn-ghost {
+    @apply btn text-forest/70 hover:bg-mist hover:text-forest;
+  }
+  .btn-danger {
+    @apply btn border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100;
+  }
+  .btn-xs {
+    @apply px-2.5 py-1 text-xs rounded-lg;
+  }
+
+  .label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-forest/60;
+  }
+  .input {
+    @apply w-full rounded-xl border border-leaf bg-surface/90 px-3 py-2 text-sm text-forest
+           placeholder:text-forest/35 focus:border-grass focus:ring-2 focus:ring-grass/30;
+  }
+  .select {
+    @apply input pr-8 appearance-none bg-no-repeat;
+    /* ใช้สี grass (#66BB6A) แทนสีเข้ม forest เดิม เพราะต้องอ่านออกได้ทั้งพื้นสว่างและมืด */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2366BB6A'%3E%3Cpath d='M5.2 7.5 10 12.3l4.8-4.8H5.2Z'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-size: 1.05rem;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-2xl border border-leaf/60 bg-surface/80 backdrop-blur-sm shadow-leafy;
+  }
+  table.grid-table {
+    @apply w-full min-w-[720px] border-collapse text-sm;
+  }
+  table.grid-table thead th {
+    @apply sticky top-0 bg-mist/95 px-4 py-3 text-left text-xs font-bold uppercase tracking-wider
+           text-forest/70 backdrop-blur;
+  }
+  /* specificity ต้องแรงกว่า "thead th" ด้านบน ไม่งั้น .num บนหัวตารางจะไม่มีผล
+     (ทำให้หัวคอลัมน์ตัวเลขชิดซ้าย ในขณะที่ข้อมูลชิดขวา ไม่ตรงแถวกัน) */
+  table.grid-table thead th.num {
+    @apply text-right;
+  }
+  table.grid-table tbody td {
+    @apply border-t border-leaf/40 px-4 py-3 align-middle;
+  }
+  table.grid-table tbody tr:hover {
+    @apply bg-mist/60;
+  }
+  .num {
+    @apply text-right tabular-nums;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .badge-green {
+    @apply badge bg-mist text-forest border border-leaf;
+  }
+  .badge-solid {
+    @apply badge text-white;
+    background-image: linear-gradient(135deg, #66bb6a 0%, #1b5e20 100%);
+  }
+
+  .pill-hit {
+    @apply badge bg-rose-100 text-rose-700 border border-rose-200;
+  }
+  .pill-near {
+    @apply badge bg-amber-100 text-amber-800 border border-amber-200;
+  }
+  .pill-watch {
+    @apply badge bg-mist text-forest border border-leaf;
+  }
+  .pill-far {
+    @apply badge bg-slate-100 text-slate-500 border border-slate-200;
+  }
+  .pill-unknown {
+    @apply badge bg-slate-100 text-slate-400 border border-slate-200;
+  }
+
+  .meter {
+    @apply h-2 w-full overflow-hidden rounded-full bg-mist;
+  }
+  .meter > span {
+    @apply block h-full rounded-full;
+    background-image: linear-gradient(90deg, #a5d6a7 0%, #66bb6a 55%, #1b5e20 100%);
+  }
+}
+
+/* scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark-mode overrides สำหรับสี status ที่ hardcode ไว้ตรง ๆ ในคอมโพเนนต์  */
+/* (bg-rose-50, text-emerald-700 ฯลฯ) — ไม่ผูกกับ CSS variable ด้านบน     */
+/* เพราะเป็นสี semantic (กำไร/ขาดทุน/เตือน) ไม่ใช่สีธีมของแบรนด์          */
+/* ครอบคลุมทั้ง prefers-color-scheme และปุ่ม toggle ด้วย selector เดียวกัน */
+/* เขียนแบบ flat (ไม่ nest selector) เพราะโปรเจกต์นี้ไม่ได้ตั้งค่า        */
+/* tailwindcss/nesting plugin ไว้ — @apply ที่อื่นในไฟล์นี้จะพังถ้า nest   */
+/* ------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .bg-rose-50 { background-color: rgb(76 5 25 / 0.5); }
+  :root:not([data-theme='light']) .bg-rose-100 { background-color: rgb(76 5 25 / 0.65); }
+  :root:not([data-theme='light']) .text-rose-500 { color: #fda4af; }
+  :root:not([data-theme='light']) .text-rose-600 { color: #fda4af; }
+  :root:not([data-theme='light']) .text-rose-700 { color: #fecdd3; }
+  :root:not([data-theme='light']) .border-rose-200 { border-color: rgb(159 18 57 / 0.6); }
+
+  :root:not([data-theme='light']) .bg-amber-50 { background-color: rgb(69 26 3 / 0.5); }
+  :root:not([data-theme='light']) .bg-amber-100 { background-color: rgb(69 26 3 / 0.65); }
+  :root:not([data-theme='light']) .bg-amber-200 { background-color: rgb(69 26 3 / 0.8); }
+  :root:not([data-theme='light']) .text-amber-700 { color: #fcd34d; }
+  :root:not([data-theme='light']) .text-amber-800 { color: #fde68a; }
+  :root:not([data-theme='light']) .border-amber-200 { border-color: rgb(146 64 14 / 0.6); }
+  :root:not([data-theme='light']) .border-amber-300 { border-color: rgb(180 83 9 / 0.7); }
+
+  :root:not([data-theme='light']) .bg-emerald-50 { background-color: rgb(2 44 34 / 0.5); }
+  :root:not([data-theme='light']) .text-emerald-600 { color: #6ee7b7; }
+  :root:not([data-theme='light']) .text-emerald-700 { color: #a7f3d0; }
+  :root:not([data-theme='light']) .text-emerald-800 { color: #d1fae5; }
+  :root:not([data-theme='light']) .border-emerald-200 { border-color: rgb(6 95 70 / 0.6); }
+
+  :root:not([data-theme='light']) .bg-cyan-50 { background-color: rgb(8 51 68 / 0.5); }
+  :root:not([data-theme='light']) .bg-cyan-100 { background-color: rgb(8 51 68 / 0.65); }
+  :root:not([data-theme='light']) .text-cyan-700 { color: #67e8f9; }
+  :root:not([data-theme='light']) .border-cyan-200 { border-color: rgb(21 94 117 / 0.6); }
+
+  :root:not([data-theme='light']) .bg-slate-50 { background-color: rgb(15 23 42 / 0.5); }
+  :root:not([data-theme='light']) .bg-slate-100 { background-color: rgb(15 23 42 / 0.65); }
+  :root:not([data-theme='light']) .text-slate-400 { color: #94a3b8; }
+  :root:not([data-theme='light']) .text-slate-500 { color: #cbd5e1; }
+  :root:not([data-theme='light']) .border-slate-200 { border-color: rgb(51 65 85 / 0.7); }
+}
+
+:root[data-theme='dark'] .bg-rose-50 { background-color: rgb(76 5 25 / 0.5); }
+:root[data-theme='dark'] .bg-rose-100 { background-color: rgb(76 5 25 / 0.65); }
+:root[data-theme='dark'] .text-rose-500 { color: #fda4af; }
+:root[data-theme='dark'] .text-rose-600 { color: #fda4af; }
+:root[data-theme='dark'] .text-rose-700 { color: #fecdd3; }
+:root[data-theme='dark'] .border-rose-200 { border-color: rgb(159 18 57 / 0.6); }
+
+:root[data-theme='dark'] .bg-amber-50 { background-color: rgb(69 26 3 / 0.5); }
+:root[data-theme='dark'] .bg-amber-100 { background-color: rgb(69 26 3 / 0.65); }
+:root[data-theme='dark'] .bg-amber-200 { background-color: rgb(69 26 3 / 0.8); }
+:root[data-theme='dark'] .text-amber-700 { color: #fcd34d; }
+:root[data-theme='dark'] .text-amber-800 { color: #fde68a; }
+:root[data-theme='dark'] .border-amber-200 { border-color: rgb(146 64 14 / 0.6); }
+:root[data-theme='dark'] .border-amber-300 { border-color: rgb(180 83 9 / 0.7); }
+
+:root[data-theme='dark'] .bg-emerald-50 { background-color: rgb(2 44 34 / 0.5); }
+:root[data-theme='dark'] .text-emerald-600 { color: #6ee7b7; }
+:root[data-theme='dark'] .text-emerald-700 { color: #a7f3d0; }
+:root[data-theme='dark'] .text-emerald-800 { color: #d1fae5; }
+:root[data-theme='dark'] .border-emerald-200 { border-color: rgb(6 95 70 / 0.6); }
+
+:root[data-theme='dark'] .bg-cyan-50 { background-color: rgb(8 51 68 / 0.5); }
+:root[data-theme='dark'] .bg-cyan-100 { background-color: rgb(8 51 68 / 0.65); }
+:root[data-theme='dark'] .text-cyan-700 { color: #67e8f9; }
+:root[data-theme='dark'] .border-cyan-200 { border-color: rgb(21 94 117 / 0.6); }
+
+:root[data-theme='dark'] .bg-slate-50 { background-color: rgb(15 23 42 / 0.5); }
+:root[data-theme='dark'] .bg-slate-100 { background-color: rgb(15 23 42 / 0.65); }
+:root[data-theme='dark'] .text-slate-400 { color: #94a3b8; }
+:root[data-theme='dark'] .text-slate-500 { color: #cbd5e1; }
+:root[data-theme='dark'] .border-slate-200 { border-color: rgb(51 65 85 / 0.7); }

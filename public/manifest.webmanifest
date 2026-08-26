@@ -1,0 +1,17 @@
+{
+  "name": "GreenPort — พอร์ตหุ้นของเรา",
+  "short_name": "GreenPort",
+  "description": "จัดการพอร์ตหุ้น สัดส่วนเป้าหมาย แนวรับแนวต้าน และเปรียบเทียบแผนการลงทุน",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#E8F5E9",
+  "theme_color": "#1B5E20",
+  "lang": "th",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
