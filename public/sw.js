@@ -1,13 +1,17 @@
 // Service worker ของ GreenPort — ทำให้เปิดจากมือถือแบบ "เพิ่มไปหน้าจอโฮม" ได้
 // และใช้งานพื้นฐานได้ตอนเน็ตหลุด (เห็นหน้าที่เคยเปิด/ข้อมูลล่าสุดที่เคยดึงไว้)
 // อัปเดตเลขเวอร์ชันทุกครั้งที่แก้ไฟล์นี้ เพื่อบังคับให้แคชเก่าถูกล้าง
-const VERSION = 'gp-v1';
+const VERSION = 'gp-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const API_CACHE = `${VERSION}-api`;
 const OFFLINE_URL = '/offline.html';
 
-const SHELL_ASSETS = ['/', OFFLINE_URL, '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
+// ห้ามใส่ '/' หรือหน้าอื่นที่ต้องล็อกอินไว้ตรงนี้ — ตอน install ยังไม่รู้ว่าผู้ใช้ล็อกอินหรือยัง
+// ถ้า precache ตอนยังไม่ล็อกอิน คำขอจะโดน middleware เด้งไป /login แล้วดันไปแคชหน้า login
+// ทับไว้ใต้คีย์ '/' ถาวร (เพราะตอน login สำเร็จ router.push/refresh เป็น soft navigation
+// ไม่ผ่าน fetch handler โหมด 'navigate' ด้านล่าง เลยไม่มีจังหวะไหนมาเขียนทับแคชเก่าให้)
+const SHELL_ASSETS = [OFFLINE_URL, '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -44,8 +48,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          // กันแคชเพี้ยน: ถ้าโดน middleware เด้งไป /login (ยังไม่ล็อกอิน/เซสชันหมดอายุ)
+          // ห้ามเอาหน้า login ไปแคชทับไว้ใต้คีย์ของหน้าที่ขอจริง (เช่น '/', '/trades')
+          // ไม่งั้นพอล็อกอินสำเร็จ หน้านั้นจะโหลดหน้า login เก่าจากแคชแทนของจริง
+          const isLoginPage = new URL(res.url).pathname === '/login';
+          if (!isLoginPage) {
+            const copy = res.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          }
           return res;
         })
         .catch(
