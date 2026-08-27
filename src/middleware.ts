@@ -17,19 +17,14 @@ const PUBLIC_PATHS = new Set([
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ส่ง pathname ปัจจุบันให้ root layout อ่านได้ (ใช้ซ่อน Sidebar เฉพาะหน้า /login)
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-pathname', pathname);
-  const passThrough = () => NextResponse.next({ request: { headers: requestHeaders } });
-
-  if (PUBLIC_PATHS.has(pathname)) return passThrough();
+  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
   // ไม่ตั้งค่า AUTH_SECRET ไว้ — fail closed (กันไว้ก่อนดีกว่าเปิดเว็บทิ้งไว้เฉย ๆ)
   const secret = process.env.AUTH_SECRET;
   const token = req.cookies.get(AUTH_COOKIE)?.value;
   const valid = secret ? await verifySessionToken(token, secret) : false;
 
-  if (valid) return passThrough();
+  if (valid) return NextResponse.next();
 
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ error: 'ต้องล็อกอินก่อน' }, { status: 401 });

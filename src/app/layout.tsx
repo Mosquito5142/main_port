@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import './globals.css';
-import Sidebar from '@/components/Sidebar';
+import AppShell from '@/components/AppShell';
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import { readDisplayCurrency } from '@/lib/currency';
 import { readTheme } from '@/lib/theme';
@@ -24,9 +23,6 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const displayCurrency = await readDisplayCurrency();
   const theme = await readTheme();
-  // middleware ใส่ header นี้ให้ทุก request — ใช้ซ่อน Sidebar เฉพาะหน้า /login (ยังไม่ล็อกอิน)
-  const hdrs = await headers();
-  const isLoginPage = hdrs.get('x-pathname') === '/login';
 
   return (
     // suppressHydrationWarning: ส่วนขยายเบราว์เซอร์ (เช่น Night Eye, Dark Reader, Grammarly)
@@ -35,16 +31,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="th" suppressHydrationWarning data-theme={theme}>
       <body>
         <ServiceWorkerRegister />
-        {isLoginPage ? (
-          children
-        ) : (
-          <div className="flex min-h-screen">
-            <Sidebar displayCurrency={displayCurrency} theme={theme} />
-            <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-10">
-              <div className="mx-auto w-full max-w-[1400px] animate-fade-up">{children}</div>
-            </main>
-          </div>
-        )}
+        <AppShell displayCurrency={displayCurrency} theme={theme}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );
