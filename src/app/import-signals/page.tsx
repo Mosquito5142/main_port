@@ -221,7 +221,7 @@ export default function ImportSignalsPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* ฝั่งวางข้อความ */}
-        <Card title="1. วางข้อความที่นี่" className="flex h-[640px] flex-col lg:col-span-4">
+        <Card title="1. วางข้อความที่นี่" className="flex h-[420px] flex-col lg:h-[640px] lg:col-span-4">
           <textarea
             className="input flex-1 resize-none font-mono text-xs leading-relaxed"
             placeholder={
@@ -246,7 +246,7 @@ export default function ImportSignalsPage() {
         </Card>
 
         {/* ฝั่งผลลัพธ์ */}
-        <Card className="flex h-[640px] flex-col lg:col-span-8">
+        <Card className="flex h-[420px] flex-col lg:h-[640px] lg:col-span-8">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-leaf/50 pb-3">
             <div className="flex items-center gap-3">
               {items.length > 0 && (

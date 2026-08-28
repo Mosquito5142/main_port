@@ -12,6 +12,8 @@ const PUBLIC_PATHS = new Set([
   '/icon-192.png',
   '/icon-512.png',
   '/icon-maskable-512.png',
+  // ต้องเปิดให้บอทอ่านได้ ไม่งั้นมันโดนเด้งไป /login แล้วไม่มีวันเห็นกฎ disallow
+  '/robots.txt',
 ]);
 
 export async function middleware(req: NextRequest) {

@@ -35,15 +35,19 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-leaf/60 bg-surface/85 px-4 py-3 backdrop-blur lg:hidden">
+      {/* Mobile top bar — สูง h-16 (64px) ตายตัว ให้ตรงกับ spacer ด้านล่างเป๊ะ ๆ
+          ไม่งั้นเนื้อหาบรรทัดแรกจะถูกแถบนี้ทับ (เคยทับอยู่ ~33px) */}
+      <div className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-leaf/60 bg-surface/85 px-4 backdrop-blur lg:hidden">
         <Brand compact />
         <button
           onClick={() => setOpen((v) => !v)}
-          className="btn-soft btn-xs"
-          aria-label="เมนู"
+          // ปุ่มเมนูเป็นทางเดียวที่จะเปิดเมนูบนมือถือ — ต้องกดง่าย
+          // min-h/min-w 44px ตามเกณฑ์ขนาดเป้ากดขั้นต่ำของ WCAG
+          className="btn-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-3 text-sm"
+          aria-label={open ? 'ปิดเมนู' : 'เปิดเมนู'}
+          aria-expanded={open}
         >
-          {open ? '✕' : '☰'} เมนู
+          <span aria-hidden="true">{open ? '✕' : '☰'}</span> เมนู
         </button>
       </div>
 
@@ -116,7 +120,8 @@ export default function Sidebar({
         </div>
       </aside>
 
-      <div className="h-14 shrink-0 lg:hidden" />
+      {/* ที่เว้นให้พ้นแถบบนอยู่ที่ pt-20 ของ <main> ใน AppShell.tsx แล้ว
+          (ใส่ div คั่นตรงนี้ไม่ได้ผล เพราะ parent เป็น flex แนวนอน) */}
     </>
   );
 }

@@ -32,7 +32,10 @@ export default function AppShell({
   return (
     <div className="flex min-h-screen">
       <Sidebar displayCurrency={displayCurrency} theme={theme} />
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-10">
+      {/* pt-20 บนมือถือ = เว้นที่ให้แถบเมนูบนที่เป็น fixed (สูง h-16/64px) ไม่ให้ทับเนื้อหา
+          ต้องเว้นที่ตรงนี้ ไม่ใช่ใส่ div คั่นใน Sidebar เพราะ parent เป็น flex แนวนอน
+          ตัว div คั่นจะกินพื้นที่แนวกว้างแทนที่จะดันเนื้อหาลง */}
+      <main className="min-w-0 flex-1 px-4 pb-6 pt-20 sm:px-8 lg:px-10 lg:pt-6">
         <div className="mx-auto w-full max-w-[1400px] animate-fade-up">{children}</div>
       </main>
     </div>

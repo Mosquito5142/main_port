@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   icons: { icon: '/favicon.svg', apple: '/icon-192.png' },
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'GreenPort' },
+  // พอร์ตส่วนตัว — ไม่ให้ search engine เก็บไป index (ซ้อนกับ X-Robots-Tag ใน next.config.mjs)
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export const viewport: Viewport = {
