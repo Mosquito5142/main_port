@@ -14,6 +14,7 @@ const NAV = [
   { href: '/', label: 'ภาพรวม', icon: '🌱', desc: 'Dashboard' },
   { href: '/portfolios', label: 'พอร์ตของฉัน', icon: '🧺', desc: 'Portfolios' },
   { href: '/trades', label: 'บันทึกซื้อขาย', icon: '🧾', desc: 'Trades' },
+  { href: '/plan', label: 'วางแผนลงเงิน', icon: '🧭', desc: 'Monthly plan' },
   { href: '/calculator', label: 'คำนวณถัวเฉลี่ย', icon: '🧮', desc: 'Average calc' },
   { href: '/levels', label: 'แนวรับ–แนวต้าน', icon: '🎯', desc: 'Radar' },
   { href: '/import-signals', label: 'นำเข้าโพย', icon: '📋', desc: 'Import signals' },
