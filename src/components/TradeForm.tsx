@@ -234,7 +234,24 @@ export default function TradeForm({
           </div>
 
           <div>
-            <label className="label">จำนวนหุ้น</label>
+            <div className="mb-1 flex items-baseline justify-between gap-2">
+              <label className="label mb-0">จำนวนหุ้น</label>
+              {position && position.quantity > 0 && (
+                <button
+                  type="button"
+                  // ใส่จำนวนที่ถืออยู่ "เต็มความละเอียด" ไม่ปัดเศษ
+                  // ถ้าพิมพ์เองแล้วปัด จะเหลือเศษหุ้นค้างในพอร์ต (เคยเกิดกับ INFQ)
+                  onClick={() => {
+                    setSide('sell');
+                    setQuantity(String(position.quantity));
+                  }}
+                  className="text-[11px] font-semibold text-grass underline-offset-2 hover:underline"
+                  title={`ขายทั้งหมดที่ถืออยู่ ${fmtQty(position.quantity)} หุ้น`}
+                >
+                  ปิดโพสิชั่น ({fmtQty(position.quantity)})
+                </button>
+              )}
+            </div>
             <input
               className="input tabular-nums"
               type="number"
@@ -245,6 +262,19 @@ export default function TradeForm({
               placeholder="100"
               required
             />
+            {side === 'sell' && position && position.quantity > 0 && (() => {
+              const q = Number(quantity) || 0;
+              const left = position.quantity - q;
+              // เตือนเฉพาะตอนที่เหลือเศษน้อยมากจนน่าจะพิมพ์ปัดเลขมา
+              if (q > 0 && left > 0 && left < position.quantity * 0.001) {
+                return (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    จะเหลือเศษค้างไว้ {fmtQty(left)} หุ้น — กด &ldquo;ปิดโพสิชั่น&rdquo; ถ้าตั้งใจขายทั้งหมด
+                  </p>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div>

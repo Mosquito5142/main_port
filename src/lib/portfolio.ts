@@ -217,10 +217,18 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     })
     .sort((a, b) => b.marketValue - a.marketValue || a.symbol.localeCompare(b.symbol));
 
-  const isOpen = (p: Position) => p.quantity > QTY_EPSILON || p.targetPercent !== null;
-  const positions = allPositions.filter(isOpen);
+  // หุ้นที่ "เคยมีการซื้อจริง" — ใช้แยกของที่ขายหมดแล้ว ออกจากของที่ตั้งเป้าไว้เฉย ๆ แต่ยังไม่เคยซื้อ
+  const everBought = new Set(
+    rows.filter(({ lot }) => lot.buyAmount > 0).map(({ stock }) => stock.id)
+  );
+
+  // ถืออยู่จริงเท่านั้นถึงจะขึ้นตารางพอร์ต — เดิมเช็ก targetPercent !== null ด้วย
+  // ทำให้หุ้นที่ขายหมดแล้วแต่ยังอยู่ในหมวดเป้าหมาย (เช่น SOFI) ค้างอยู่ในตารางทั้งที่ถือ 0 หุ้น
+  // ส่วน "ตัวที่ควรซื้อเพิ่ม" ดูได้ที่หน้าวางแผนลงเงิน + ตัวแก้สัดส่วนรายหมวดอยู่แล้ว
+  const isHeld = (p: Position) => p.quantity > QTY_EPSILON;
+  const positions = allPositions.filter(isHeld);
   const closed = allPositions
-    .filter((p) => !isOpen(p))
+    .filter((p) => !isHeld(p) && everBought.has(p.stock_id))
     .sort((a, b) => b.realizedPnl - a.realizedPnl);
 
   const capitalBase =
