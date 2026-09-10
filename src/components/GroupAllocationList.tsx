@@ -33,6 +33,11 @@ export default function GroupAllocationList({
                   style={{ background: g.color }}
                 />
                 <span className="truncate font-semibold text-forest">{g.label}</span>
+                {g.isCore && (
+                  <span className="rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 border border-blue-200">
+                    Core
+                  </span>
+                )}
                 {g.symbols.length > 1 && (
                   <span className="hidden truncate text-[10px] text-forest/35 sm:inline">
                     {g.symbols.join(' · ')}
@@ -41,7 +46,10 @@ export default function GroupAllocationList({
               </span>
               <span className="shrink-0 tabular-nums text-forest/60">
                 <b className="text-forest">{g.actualPct.toFixed(1)}%</b>
-                <span className="text-forest/35"> / {g.targetPct}%</span>
+                <span className="text-forest/35">
+                  {' '}
+                  / {g.isCore ? 'Core (อิสระ)' : `${g.targetPct.toFixed(1)}%`}
+                </span>
               </span>
             </div>
 
@@ -53,15 +61,21 @@ export default function GroupAllocationList({
                   background: g.color,
                 }}
               />
-              <div
-                className="absolute inset-y-0 w-0.5 bg-forest/70"
-                style={{ left: `${Math.min(100, (g.targetPct / max) * 100)}%` }}
-                title={`เป้าหมาย ${g.targetPct}%`}
-              />
+              {!g.isCore && (
+                <div
+                  className="absolute inset-y-0 w-0.5 bg-forest/70"
+                  style={{ left: `${Math.min(100, (g.targetPct / max) * 100)}%` }}
+                  title={`เป้าหมาย ${g.targetPct.toFixed(1)}%`}
+                />
+              )}
             </div>
 
             <div className="mt-1 text-xs">
-              {onTarget ? (
+              {g.isCore ? (
+                <span className="font-medium text-blue-600">
+                  ⭐ แกนหลักพอร์ต — สะสมเมื่อย่อ (ไม่จำกัดสัดส่วน)
+                </span>
+              ) : onTarget ? (
                 <span className="text-emerald-700">✓ ตรงเป้า</span>
               ) : over ? (
                 <span className="text-amber-700">

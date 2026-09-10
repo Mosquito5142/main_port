@@ -10,6 +10,7 @@ import {
   levelStatus,
   QTY_EPSILON,
   rebalanceAmount,
+  round,
   type TradeStats,
 } from './calc';
 import {
@@ -243,7 +244,7 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     } else {
       const eff =
         satelliteBaseSum > 0
-          ? (g.targetPct / satelliteBaseSum) * satelliteRemainingPct
+          ? round((g.targetPct / satelliteBaseSum) * satelliteRemainingPct, 2)
           : 0;
       effectiveTargetByGroup.set(g.key, eff);
     }

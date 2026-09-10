@@ -194,7 +194,7 @@ export default function TargetGroupEditor({
               width: `${Math.min(100, g.isCore ? g.actualPct : Number(g.targetPct) || 0)}%`,
               background: g.color,
             }}
-            title={`${g.label} ${g.isCore ? `(Core ลอยตัว ${g.actualPct.toFixed(1)}%)` : `${g.targetPct}%`}`}
+            title={`${g.label} ${g.isCore ? `(Core ลอยตัว ${g.actualPct.toFixed(1)}%)` : `${(Number(g.targetPct) || 0).toFixed(1)}%`}`}
           />
         ))}
       </div>
