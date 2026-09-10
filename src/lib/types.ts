@@ -82,6 +82,7 @@ export interface Position {
   diffPercent: number | null; // weight - target
   actionAmount: number; // จำนวนเงินที่ต้องซื้อ(+)/ขาย(-) เพื่อเข้าเป้า
   changePercent: number | null;
+  isCore?: boolean;
 }
 
 export interface LevelProximity {

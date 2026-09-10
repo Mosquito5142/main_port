@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS gp_target_groups (
   color        TEXT NOT NULL DEFAULT '#66BB6A',
   sort_order   INTEGER NOT NULL DEFAULT 0,
   is_other     INTEGER NOT NULL DEFAULT 0,
+  is_core      INTEGER NOT NULL DEFAULT 0,
   updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (portfolio_id, key)
 );
@@ -185,7 +186,17 @@ function ensureSchema(): Promise<void> {
         `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'gp_%'`
       );
       const have = new Set(existing.rows.map((r) => String(r.name)));
-      if (REQUIRED_TABLES.every((t) => have.has(t))) return;
+      if (REQUIRED_TABLES.every((t) => have.has(t))) {
+        // Migration ปลอดภัย: เพิ่มคอลัมน์ is_core ถ้ายังไม่มีใน gp_target_groups
+        try {
+          await db().execute(
+            `ALTER TABLE gp_target_groups ADD COLUMN is_core INTEGER NOT NULL DEFAULT 0`
+          );
+        } catch {
+          // ถ้ามีคอลัมน์อยู่แล้ว SQLite จะ error ก็ข้ามไป
+        }
+        return;
+      }
 
       const stmts = SCHEMA.split(';')
         .map((s) => s.trim())

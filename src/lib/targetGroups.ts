@@ -17,28 +17,29 @@ export interface TargetGroup {
   color: string;
   sortOrder: number;
   isOther: boolean;
+  isCore: boolean;
   symbols: string[];
 }
 
 export const OTHER_KEY = 'other';
 
-/** ค่าเริ่มต้นตอนยังไม่เคยตั้ง — อ้างอิงแผน "Growth Portfolio ตามสัดส่วนความมั่นใจ" */
+/** ค่าเริ่มต้นตอนยังไม่เคยตั้ง — อ้างอิงแผน "Growth Portfolio ตามสัดส่วนความมั่นใจ" โดย META และ RKLB เป็น Core */
 const DEFAULT_GROUPS: Omit<TargetGroup, 'id'>[] = [
-  { key: 'meta', label: 'META', targetPct: 25, symbols: ['META'], color: '#1877F2', sortOrder: 0, isOther: false },
-  { key: 'physical_ai', label: 'Physical AI', targetPct: 18.75, symbols: ['AMBA', 'AMBQ', 'OSS', 'VPG', 'OUST'], color: '#2563eb', sortOrder: 1, isOther: false },
-  { key: 'rklb', label: 'RKLB', targetPct: 11.25, symbols: ['RKLB'], color: '#f97316', sortOrder: 2, isOther: false },
-  { key: 'drone', label: 'โดรน (Drone)', targetPct: 7.5, symbols: ['KTOS', 'AVAV', 'ONDS'], color: '#22c55e', sortOrder: 3, isOther: false },
-  { key: 'asts', label: 'ASTS', targetPct: 7.5, symbols: ['ASTS'], color: '#a855f7', sortOrder: 4, isOther: false },
-  { key: 'crdo', label: 'CRDO', targetPct: 5.25, symbols: ['CRDO'], color: '#06b6d4', sortOrder: 5, isOther: false },
-  { key: 'aehr', label: 'AEHR', targetPct: 5.25, symbols: ['AEHR'], color: '#eab308', sortOrder: 6, isOther: false },
-  { key: 'crcl', label: 'CRCL', targetPct: 3, symbols: ['CRCL'], color: '#ec4899', sortOrder: 7, isOther: false },
-  { key: 'fps', label: 'FPS', targetPct: 3, symbols: ['FPS'], color: '#14b8a6', sortOrder: 8, isOther: false },
-  { key: 'nvts', label: 'NVTS', targetPct: 2.25, symbols: ['NVTS'], color: '#fb923c', sortOrder: 9, isOther: false },
-  { key: 'tmdx', label: 'TMDX', targetPct: 2.25, symbols: ['TMDX'], color: '#8b5cf6', sortOrder: 10, isOther: false },
-  { key: 'clpt', label: 'CLPT', targetPct: 2.25, symbols: ['CLPT'], color: '#4ade80', sortOrder: 11, isOther: false },
-  { key: 'oklo', label: 'OKLO', targetPct: 2.25, symbols: ['OKLO'], color: '#ef4444', sortOrder: 12, isOther: false },
-  { key: 'jmia', label: 'JMIA', targetPct: 1.5, symbols: ['JMIA'], color: '#94a3b8', sortOrder: 13, isOther: false },
-  { key: OTHER_KEY, label: 'อื่นๆ / เงินสด', targetPct: 3, symbols: [], color: '#64748b', sortOrder: 99, isOther: true },
+  { key: 'meta', label: 'META', targetPct: 25, symbols: ['META'], color: '#1877F2', sortOrder: 0, isOther: false, isCore: true },
+  { key: 'physical_ai', label: 'Physical AI', targetPct: 18.75, symbols: ['AMBA', 'AMBQ', 'OSS', 'VPG', 'OUST'], color: '#2563eb', sortOrder: 1, isOther: false, isCore: false },
+  { key: 'rklb', label: 'RKLB', targetPct: 11.25, symbols: ['RKLB'], color: '#f97316', sortOrder: 2, isOther: false, isCore: true },
+  { key: 'drone', label: 'โดรน (Drone)', targetPct: 7.5, symbols: ['KTOS', 'AVAV', 'ONDS'], color: '#22c55e', sortOrder: 3, isOther: false, isCore: false },
+  { key: 'asts', label: 'ASTS', targetPct: 7.5, symbols: ['ASTS'], color: '#a855f7', sortOrder: 4, isOther: false, isCore: false },
+  { key: 'crdo', label: 'CRDO', targetPct: 5.25, symbols: ['CRDO'], color: '#06b6d4', sortOrder: 5, isOther: false, isCore: false },
+  { key: 'aehr', label: 'AEHR', targetPct: 5.25, symbols: ['AEHR'], color: '#eab308', sortOrder: 6, isOther: false, isCore: false },
+  { key: 'crcl', label: 'CRCL', targetPct: 3, symbols: ['CRCL'], color: '#ec4899', sortOrder: 7, isOther: false, isCore: false },
+  { key: 'fps', label: 'FPS', targetPct: 3, symbols: ['FPS'], color: '#14b8a6', sortOrder: 8, isOther: false, isCore: false },
+  { key: 'nvts', label: 'NVTS', targetPct: 2.25, symbols: ['NVTS'], color: '#fb923c', sortOrder: 9, isOther: false, isCore: false },
+  { key: 'tmdx', label: 'TMDX', targetPct: 2.25, symbols: ['TMDX'], color: '#8b5cf6', sortOrder: 10, isOther: false, isCore: false },
+  { key: 'clpt', label: 'CLPT', targetPct: 2.25, symbols: ['CLPT'], color: '#4ade80', sortOrder: 11, isOther: false, isCore: false },
+  { key: 'oklo', label: 'OKLO', targetPct: 2.25, symbols: ['OKLO'], color: '#ef4444', sortOrder: 12, isOther: false, isCore: false },
+  { key: 'jmia', label: 'JMIA', targetPct: 1.5, symbols: ['JMIA'], color: '#94a3b8', sortOrder: 13, isOther: false, isCore: false },
+  { key: OTHER_KEY, label: 'อื่นๆ / เงินสด', targetPct: 3, symbols: [], color: '#64748b', sortOrder: 99, isOther: true, isCore: false },
 ];
 
 /** อ่านหมวดทั้งหมดของพอร์ต — ถ้ายังไม่เคยมี จะใส่ค่าเริ่มต้นให้อัตโนมัติ */
@@ -56,9 +57,9 @@ async function readGroups(portfolioId: number): Promise<TargetGroup[]> {
   const [groups, syms] = await Promise.all([
     query<{
       id: number; key: string; label: string; target_pct: number;
-      color: string; sort_order: number; is_other: number;
+      color: string; sort_order: number; is_other: number; is_core: number;
     }>(
-      `SELECT id, key, label, target_pct, color, sort_order, is_other
+      `SELECT id, key, label, target_pct, color, sort_order, is_other, COALESCE(is_core, 0) as is_core
          FROM gp_target_groups WHERE portfolio_id = $1
         ORDER BY is_other ASC, sort_order ASC, id ASC`,
       [portfolioId]
@@ -88,6 +89,7 @@ async function readGroups(portfolioId: number): Promise<TargetGroup[]> {
     color: g.color,
     sortOrder: g.sort_order,
     isOther: Boolean(g.is_other),
+    isCore: Boolean(g.is_core),
     symbols: byGroup.get(g.id) ?? [],
   }));
 }
@@ -104,8 +106,8 @@ export async function saveTargetGroups(
       const isOther = g.isOther || g.key === OTHER_KEY;
       const rows = await q<{ id: number }>(
         `INSERT INTO gp_target_groups
-           (portfolio_id, key, label, target_pct, color, sort_order, is_other, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7, datetime('now')) RETURNING id`,
+           (portfolio_id, key, label, target_pct, color, sort_order, is_other, is_core, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8, datetime('now')) RETURNING id`,
         [
           portfolioId,
           g.key,
@@ -114,6 +116,7 @@ export async function saveTargetGroups(
           g.color || '#66BB6A',
           isOther ? 99 : order++,
           isOther ? 1 : 0,
+          g.isCore ? 1 : 0,
         ]
       );
       const groupId = rows[0].id;
@@ -140,20 +143,31 @@ export interface GroupIndex {
   symbolToGroup: Map<string, string>;
   byKey: Map<string, TargetGroup>;
   totalTargetPct: number;
+  coreKeys: Set<string>;
+  coreSymbols: Set<string>;
 }
 
 export function indexGroups(groups: TargetGroup[]): GroupIndex {
   const symbolToGroup = new Map<string, string>();
   const byKey = new Map<string, TargetGroup>();
+  const coreKeys = new Set<string>();
+  const coreSymbols = new Set<string>();
   for (const g of groups) {
     byKey.set(g.key, g);
-    for (const s of g.symbols) symbolToGroup.set(s.toUpperCase(), g.key);
+    if (g.isCore) coreKeys.add(g.key);
+    for (const s of g.symbols) {
+      const sym = s.toUpperCase();
+      symbolToGroup.set(sym, g.key);
+      if (g.isCore) coreSymbols.add(sym);
+    }
   }
   return {
     groups,
     symbolToGroup,
     byKey,
     totalTargetPct: groups.reduce((a, g) => a + g.targetPct, 0),
+    coreKeys,
+    coreSymbols,
   };
 }
 
@@ -161,7 +175,12 @@ export function groupOf(idx: GroupIndex, symbol: string): string {
   return idx.symbolToGroup.get(String(symbol || '').toUpperCase().trim()) ?? OTHER_KEY;
 }
 
-/** เป้าหมายรายตัว = เป้าของหมวด ÷ จำนวนหุ้นในหมวด */
+/** ตรวจสอบว่าหุ้นเป็น Core หรือไม่ */
+export function isCoreSymbol(idx: GroupIndex, symbol: string): boolean {
+  return idx.coreSymbols.has(String(symbol || '').toUpperCase().trim());
+}
+
+/** เป้าหมายรายตัวแบบเดิม (Base Target) = เป้าของหมวด ÷ จำนวนหุ้นในหมวด */
 export function targetPctOfSymbol(idx: GroupIndex, symbol: string): number | null {
   const key = groupOf(idx, symbol);
   if (key === OTHER_KEY) return null;

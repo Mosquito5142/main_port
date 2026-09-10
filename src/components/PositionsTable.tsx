@@ -35,9 +35,16 @@ export default function PositionsTable({
                   href={`/stocks/${encodeURIComponent(p.symbol)}`}
                   className="group flex flex-col leading-tight"
                 >
-                  <span className="font-bold text-forest group-hover:underline">
-                    {p.symbol}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-forest group-hover:underline">
+                      {p.symbol}
+                    </span>
+                    {p.isCore && (
+                      <span className="rounded bg-blue-50 px-1 text-[10px] font-semibold text-blue-700 border border-blue-200" title="หุ้นแกนหลัก (ไร้เพดานสัดส่วน)">
+                        Core
+                      </span>
+                    )}
+                  </div>
                   <span className="max-w-[220px] truncate text-xs text-forest/50">
                     {p.name ?? "—"}
                   </span>
@@ -74,7 +81,16 @@ export default function PositionsTable({
               </td>
               {showTarget && (
                 <td className="num">
-                  {p.targetPercent === null ? (
+                  {p.isCore ? (
+                    <div className="flex flex-col items-end leading-tight">
+                      <span className="font-semibold text-blue-700">
+                        {p.weight.toFixed(2)}%
+                      </span>
+                      <span className="text-[10px] text-blue-600/75">
+                        ⭐ แกนหลัก
+                      </span>
+                    </div>
+                  ) : p.targetPercent === null ? (
                     <span className="text-forest/30">—</span>
                   ) : (
                     <div className="flex flex-col items-end leading-tight">
@@ -92,7 +108,11 @@ export default function PositionsTable({
               )}
               {showTarget && (
                 <td className="num">
-                  {p.targetPercent === null || Math.abs(p.actionAmount) < 1 ? (
+                  {p.isCore ? (
+                    <span className="badge bg-blue-50 text-blue-800 border border-blue-200 font-medium">
+                      ⭐ สะสมเมื่อย่อ
+                    </span>
+                  ) : p.targetPercent === null || Math.abs(p.actionAmount) < 1 ? (
                     <span className="badge-green">สมดุล</span>
                   ) : p.actionAmount > 0 ? (
                     <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">

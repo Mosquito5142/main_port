@@ -11,6 +11,7 @@ export interface EditableGroup {
   color: string;
   symbols: string[];
   isOther: boolean;
+  isCore: boolean;
   actualPct: number;
   marketValue: number;
   actionAmount: number;
@@ -38,6 +39,15 @@ export default function TargetGroupEditor({
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const hasCore = groups.some((g) => g.isCore);
+  const coreActualTotal = useMemo(
+    () => groups.filter((g) => g.isCore).reduce((a, g) => a + (Number(g.actualPct) || 0), 0),
+    [groups]
+  );
+  const satelliteTotal = useMemo(
+    () => groups.filter((g) => !g.isCore).reduce((a, g) => a + (Number(g.targetPct) || 0), 0),
+    [groups]
+  );
   const total = useMemo(
     () => groups.reduce((a, g) => a + (Number(g.targetPct) || 0), 0),
     [groups]
@@ -56,6 +66,7 @@ export default function TargetGroupEditor({
       color: PALETTE[n % PALETTE.length],
       symbols: [],
       isOther: false,
+      isCore: false,
       actualPct: 0,
       marketValue: 0,
       actionAmount: 0,
@@ -98,12 +109,17 @@ export default function TargetGroupEditor({
             color: g.color,
             symbols: g.symbols,
             isOther: g.isOther,
+            isCore: g.isCore,
           })),
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'บันทึกไม่สำเร็จ');
-      setMsg(`บันทึกแล้ว — รวม ${json.total.toFixed(2)}% 🌿`);
+      setMsg(
+        hasCore
+          ? `บันทึกแล้ว — แกนหลักลอยตัวตามจริง ดาวบริวารรวม ${json.total.toFixed(2)}% ⭐🌿`
+          : `บันทึกแล้ว — รวม ${json.total.toFixed(2)}% 🌿`
+      );
       router.refresh();
     } catch (e: any) {
       setError(e.message);
@@ -112,25 +128,52 @@ export default function TargetGroupEditor({
     }
   }
 
+  const compareVal = hasCore ? satelliteTotal : total;
   const totalTone =
-    Math.abs(total - 100) < 0.01
+    Math.abs(compareVal - 100) < 0.01
       ? 'text-emerald-700'
-      : total > 100
+      : compareVal > 100
         ? 'text-rose-600'
         : 'text-amber-700';
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-sm text-forest/60">รวมทั้งหมด</span>
-          <span className={`text-xl font-extrabold tabular-nums ${totalTone}`}>
-            {total.toFixed(2)}%
-          </span>
-          {Math.abs(total - 100) >= 0.01 && (
-            <span className="text-xs text-forest/50">
-              ({total > 100 ? 'เกิน' : 'เหลือ'} {Math.abs(100 - total).toFixed(2)}%)
-            </span>
+        <div className="flex flex-wrap items-baseline gap-3">
+          {hasCore ? (
+            <>
+              <div className="flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 border border-blue-200">
+                <span className="text-xs font-semibold text-blue-800">⭐ แกนหลัก (Core):</span>
+                <span className="text-sm font-bold text-blue-900 tabular-nums">
+                  {coreActualTotal.toFixed(2)}%
+                </span>
+                <span className="text-[11px] text-blue-600/80">(ลอยตัวตามจริง)</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm text-forest/60">ดาวบริวาร</span>
+                <span className={`text-xl font-extrabold tabular-nums ${totalTone}`}>
+                  {satelliteTotal.toFixed(2)}%
+                </span>
+                {Math.abs(satelliteTotal - 100) >= 0.01 && (
+                  <span className="text-xs text-forest/50">
+                    ({satelliteTotal > 100 ? 'เกิน' : 'เหลือ'}{' '}
+                    {Math.abs(100 - satelliteTotal).toFixed(2)}%)
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-sm text-forest/60">รวมทั้งหมด</span>
+              <span className={`text-xl font-extrabold tabular-nums ${totalTone}`}>
+                {total.toFixed(2)}%
+              </span>
+              {Math.abs(total - 100) >= 0.01 && (
+                <span className="text-xs text-forest/50">
+                  ({total > 100 ? 'เกิน' : 'เหลือ'} {Math.abs(100 - total).toFixed(2)}%)
+                </span>
+              )}
+            </>
           )}
         </div>
         <div className="flex gap-2">
@@ -148,10 +191,10 @@ export default function TargetGroupEditor({
           <div
             key={g.key}
             style={{
-              width: `${Math.min(100, Number(g.targetPct) || 0)}%`,
+              width: `${Math.min(100, g.isCore ? g.actualPct : Number(g.targetPct) || 0)}%`,
               background: g.color,
             }}
-            title={`${g.label} ${g.targetPct}%`}
+            title={`${g.label} ${g.isCore ? `(Core ลอยตัว ${g.actualPct.toFixed(1)}%)` : `${g.targetPct}%`}`}
           />
         ))}
       </div>
@@ -165,57 +208,92 @@ export default function TargetGroupEditor({
           return (
             <div
               key={g.key}
-              className="rounded-xl border border-leaf/60 bg-surface/70 p-3"
+              className={`rounded-xl border p-3 ${
+                g.isCore
+                  ? 'border-blue-300 bg-blue-50/30'
+                  : 'border-leaf/60 bg-surface/70'
+              }`}
               style={{ borderLeft: `4px solid ${g.color}` }}
             >
               <div className="grid grid-cols-12 items-center gap-2">
-                <div className="col-span-12 sm:col-span-3">
+                <div className="col-span-12 sm:col-span-3 flex items-center gap-1.5">
                   <input
-                    className="input py-1.5 font-semibold"
+                    className="input py-1.5 font-semibold flex-1 min-w-0"
                     value={g.label}
                     onChange={(e) => patch(i, { label: e.target.value })}
                     placeholder="ชื่อหมวด"
                   />
+                  {!g.isOther && (
+                    <button
+                      type="button"
+                      onClick={() => patch(i, { isCore: !g.isCore })}
+                      className={`btn-xs rounded px-1.5 py-1 text-[11px] font-semibold transition shrink-0 ${
+                        g.isCore
+                          ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                          : 'bg-mist text-forest/60 hover:bg-mist/80 hover:text-forest'
+                      }`}
+                      title={
+                        g.isCore
+                          ? 'คลิกเพื่อเปลี่ยนเป็นหมวดดาวบริวารปกติ'
+                          : 'คลิกเพื่อตั้งเป็นแกนหลัก (ไร้เพดานสัดส่วน)'
+                      }
+                    >
+                      {g.isCore ? '⭐ Core' : '☆ Core'}
+                    </button>
+                  )}
                 </div>
 
-                <div className="col-span-5 sm:col-span-3">
-                  <input
-                    type="range"
-                    min={0}
-                    max={50}
-                    step={0.25}
-                    value={Number(g.targetPct) || 0}
-                    onChange={(e) => patch(i, { targetPct: Number(e.target.value) })}
-                    className="w-full accent-[#43A047]"
-                  />
-                </div>
-
-                <div className="col-span-4 sm:col-span-2">
-                  <div className="flex items-center gap-1">
-                    <input
-                      className="input py-1.5 text-right tabular-nums"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.25}
-                      value={Number(g.targetPct) || 0}
-                      onChange={(e) => patch(i, { targetPct: Number(e.target.value) })}
-                    />
-                    <span className="text-sm text-forest/50">%</span>
+                {g.isCore ? (
+                  <div className="col-span-9 sm:col-span-5 flex items-center gap-2 rounded-lg bg-blue-50/80 border border-blue-200/70 px-2.5 py-1.5 text-xs text-blue-900">
+                    <span className="font-semibold">⭐ แกนหลัก:</span>
+                    <span className="text-blue-700">ลอยตัวตามจริง ({g.actualPct.toFixed(2)}%) ไม่จำกัดเพดาน</span>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="col-span-5 sm:col-span-3">
+                      <input
+                        type="range"
+                        min={0}
+                        max={50}
+                        step={0.25}
+                        value={Number(g.targetPct) || 0}
+                        onChange={(e) => patch(i, { targetPct: Number(e.target.value) })}
+                        className="w-full accent-[#43A047]"
+                      />
+                    </div>
 
-                <div className="col-span-3 text-right text-xs sm:col-span-3">
+                    <div className="col-span-4 sm:col-span-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          className="input py-1.5 text-right tabular-nums"
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.25}
+                          value={Number(g.targetPct) || 0}
+                          onChange={(e) => patch(i, { targetPct: Number(e.target.value) })}
+                        />
+                        <span className="text-sm text-forest/50">%</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="col-span-2 text-right text-xs sm:col-span-3">
                   <div className="text-forest/60">
                     ตอนนี้ <b className="tabular-nums text-forest">{g.actualPct.toFixed(2)}%</b>
                   </div>
-                  <div className={toneClass(-(g.actualPct - (Number(g.targetPct) || 0)))}>
-                    {Math.abs(g.actionAmount) < 1
-                      ? 'ตรงเป้า'
-                      : g.actionAmount > 0
-                        ? `เติม ${fmtMoney(g.actionAmount, 0)} ${currency}`
-                        : `ลด ${fmtMoney(Math.abs(g.actionAmount), 0)} ${currency}`}
-                  </div>
+                  {g.isCore ? (
+                    <div className="text-blue-700 font-medium">⭐ แกนหลัก</div>
+                  ) : (
+                    <div className={toneClass(-(g.actualPct - (Number(g.targetPct) || 0)))}>
+                      {Math.abs(g.actionAmount) < 1
+                        ? 'ตรงเป้า'
+                        : g.actionAmount > 0
+                          ? `เติม ${fmtMoney(g.actionAmount, 0)} ${currency}`
+                          : `ลด ${fmtMoney(Math.abs(g.actionAmount), 0)} ${currency}`}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-span-1 flex justify-end gap-0.5">
@@ -265,12 +343,16 @@ export default function TargetGroupEditor({
                       }
                       placeholder="หุ้นในหมวด เช่น AMBA, AMBQ, OSS"
                     />
-                    {perSymbol !== null && (
+                    {g.isCore ? (
+                      <span className="text-xs text-blue-700/80">
+                        ⭐ หุ้นแกนหลัก {g.symbols.length} ตัว (สะสมเมื่อย่อ)
+                      </span>
+                    ) : perSymbol !== null ? (
                       <span className="text-xs text-forest/50">
                         = ตัวละ <b className="tabular-nums">{perSymbol.toFixed(2)}%</b> (
                         {g.symbols.length} ตัว)
                       </span>
-                    )}
+                    ) : null}
                   </>
                 )}
                 <select

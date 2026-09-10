@@ -13,6 +13,7 @@ import {
   type TradeStats,
 } from './calc';
 import {
+  groupOf,
   indexGroups,
   listTargetGroups,
   OTHER_KEY,
@@ -86,6 +87,7 @@ export interface GroupAllocation {
   label: string;
   color: string;
   targetPct: number;
+  baseTargetPct?: number;
   actualPct: number;
   diffPct: number;
   marketValue: number;
@@ -95,6 +97,7 @@ export interface GroupAllocation {
   /** หุ้นที่ถืออยู่จริงในหมวดนี้ */
   heldSymbols: string[];
   isOther: boolean;
+  isCore: boolean;
 }
 
 export interface PortfolioView {
@@ -191,11 +194,86 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     return { stock, lot, quote, price, mv };
   });
 
+  const capitalBase =
+    Number(portfolio.initial_cash) > 0 ? Number(portfolio.initial_cash) : buyAmount;
+  const cash = capitalBase - buyAmount + sellAmount;
+  const netWorth = cash + marketValue;
+  const unrealizedPnl = marketValue - costValue;
+  const base = netWorth > 0 ? netWorth : marketValue;
+
+  // ---- รวบรวมมูลค่าและหุ้นที่ถือตามหมวด ----
+  const valueByGroup = new Map<string, number>();
+  const heldByGroup = new Map<string, string[]>();
+  for (const r of rows) {
+    if (r.mv <= 0) continue;
+    const key = gidx.symbolToGroup.get(r.stock.symbol.toUpperCase()) ?? OTHER_KEY;
+    valueByGroup.set(key, (valueByGroup.get(key) ?? 0) + r.mv);
+    if (r.lot.quantity > QTY_EPSILON) {
+      const held = heldByGroup.get(key) ?? [];
+      held.push(r.stock.symbol);
+      heldByGroup.set(key, held);
+    }
+  }
+  // เงินสดไปกองรวมที่หมวดอื่นๆ
+  if (cash > 0) valueByGroup.set(OTHER_KEY, (valueByGroup.get(OTHER_KEY) ?? 0) + cash);
+
+  // ---- คำนวณ Dynamic Core-Satellite Targets ----
+  // 1. หาผลรวมมูลค่าและสัดส่วนจริงของกลุ่ม Core
+  let coreMv = 0;
+  for (const g of groupList) {
+    if (g.isCore) {
+      coreMv += valueByGroup.get(g.key) ?? 0;
+    }
+  }
+  const coreActualPct = base > 0 ? (coreMv / base) * 100 : 0;
+  // พื้นที่ที่เหลือสำหรับกลุ่ม Satellite
+  const satelliteRemainingPct = Math.max(0, 100 - coreActualPct);
+
+  // 2. ผลรวม Base Target ของกลุ่ม Satellite
+  const satelliteGroups = groupList.filter((g) => !g.isCore);
+  const satelliteBaseSum = satelliteGroups.reduce((a, g) => a + g.targetPct, 0);
+
+  // 3. คำนวณ Dynamic Effective Target % ของแต่ละหมวด
+  const effectiveTargetByGroup = new Map<string, number>();
+  for (const g of groupList) {
+    if (g.isCore) {
+      const mv = valueByGroup.get(g.key) ?? 0;
+      const actualPct = base > 0 ? (mv / base) * 100 : 0;
+      effectiveTargetByGroup.set(g.key, actualPct);
+    } else {
+      const eff =
+        satelliteBaseSum > 0
+          ? (g.targetPct / satelliteBaseSum) * satelliteRemainingPct
+          : 0;
+      effectiveTargetByGroup.set(g.key, eff);
+    }
+  }
+
   const allPositions: Position[] = rows
     .map(({ stock, lot, quote, price, mv }) => {
-      // เป้าหมายมาจาก "หมวด" เท่านั้น — หุ้นที่ไม่อยู่หมวดไหนถือเป็น "อื่นๆ" (ไม่มีเป้ารายตัว)
-      const target = targetPctOfSymbol(gidx, stock.symbol);
+      const groupKey = groupOf(gidx, stock.symbol);
+      const group = gidx.byKey.get(groupKey);
+      const isCore = Boolean(group?.isCore);
       const weight = marketValue > 0 ? (mv / marketValue) * 100 : 0;
+
+      let targetPercent: number | null = null;
+      let diffPercent: number | null = null;
+      let actionAmount = 0;
+
+      if (groupKey !== OTHER_KEY && group && group.symbols.length > 0) {
+        if (isCore) {
+          targetPercent = weight;
+          diffPercent = 0;
+          actionAmount = 0; // ไม่สั่งขาย Core
+        } else {
+          const effGroupTarget = effectiveTargetByGroup.get(groupKey) ?? 0;
+          const targetDollar = ((effGroupTarget / 100) * base) / group.symbols.length;
+          actionAmount = targetDollar - mv;
+          targetPercent = marketValue > 0 ? (targetDollar / marketValue) * 100 : null;
+          diffPercent = targetPercent !== null ? weight - targetPercent : null;
+        }
+      }
+
       return {
         stock_id: stock.id,
         symbol: stock.symbol,
@@ -209,10 +287,11 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
         unrealizedPnl: mv - lot.costValue,
         unrealizedPct: lot.costValue > 0 ? ((mv - lot.costValue) / lot.costValue) * 100 : null,
         weight,
-        targetPercent: target,
-        diffPercent: target === null ? null : weight - target,
-        actionAmount: target === null ? 0 : rebalanceAmount(mv, marketValue, target),
+        targetPercent,
+        diffPercent,
+        actionAmount,
         changePercent: quote?.changePercent ?? null,
+        isCore,
       } satisfies Position;
     })
     .sort((a, b) => b.marketValue - a.marketValue || a.symbol.localeCompare(b.symbol));
@@ -222,52 +301,31 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     rows.filter(({ lot }) => lot.buyAmount > 0).map(({ stock }) => stock.id)
   );
 
-  // ถืออยู่จริงเท่านั้นถึงจะขึ้นตารางพอร์ต — เดิมเช็ก targetPercent !== null ด้วย
-  // ทำให้หุ้นที่ขายหมดแล้วแต่ยังอยู่ในหมวดเป้าหมาย (เช่น SOFI) ค้างอยู่ในตารางทั้งที่ถือ 0 หุ้น
-  // ส่วน "ตัวที่ควรซื้อเพิ่ม" ดูได้ที่หน้าวางแผนลงเงิน + ตัวแก้สัดส่วนรายหมวดอยู่แล้ว
   const isHeld = (p: Position) => p.quantity > QTY_EPSILON;
   const positions = allPositions.filter(isHeld);
   const closed = allPositions
     .filter((p) => !isHeld(p) && everBought.has(p.stock_id))
     .sort((a, b) => b.realizedPnl - a.realizedPnl);
 
-  const capitalBase =
-    Number(portfolio.initial_cash) > 0 ? Number(portfolio.initial_cash) : buyAmount;
-  const cash = capitalBase - buyAmount + sellAmount;
-  const netWorth = cash + marketValue;
-  const unrealizedPnl = marketValue - costValue;
-
-  // ---- สรุปรายหมวด ----
-  // ตัวหารคือมูลค่าพอร์ตรวมเงินสด เพราะเงินสดถูกนับเป็นส่วนหนึ่งของหมวด "อื่นๆ"
-  const base = netWorth > 0 ? netWorth : marketValue;
-  const valueByGroup = new Map<string, number>();
-  const heldByGroup = new Map<string, string[]>();
-  for (const p of allPositions) {
-    if (p.marketValue <= 0) continue;
-    const key = gidx.symbolToGroup.get(p.symbol.toUpperCase()) ?? OTHER_KEY;
-    valueByGroup.set(key, (valueByGroup.get(key) ?? 0) + p.marketValue);
-    const held = heldByGroup.get(key) ?? [];
-    held.push(p.symbol);
-    heldByGroup.set(key, held);
-  }
-  // เงินสดไปกองรวมที่หมวดอื่นๆ
-  if (cash > 0) valueByGroup.set(OTHER_KEY, (valueByGroup.get(OTHER_KEY) ?? 0) + cash);
-
   const groups: GroupAllocation[] = groupList.map((g) => {
     const mv = valueByGroup.get(g.key) ?? 0;
     const actualPct = base > 0 ? (mv / base) * 100 : 0;
+    const effTarget = effectiveTargetByGroup.get(g.key) ?? g.targetPct;
+
     return {
       key: g.key,
       label: g.label,
       color: g.color,
-      targetPct: g.targetPct,
+      targetPct: effTarget,
+      baseTargetPct: g.targetPct,
       actualPct,
-      diffPct: actualPct - g.targetPct,
+      diffPct: g.isCore ? 0 : actualPct - effTarget,
       marketValue: mv,
-      actionAmount: (g.targetPct / 100) * base - mv,
+      actionAmount: g.isCore ? 0 : (effTarget / 100) * base - mv,
       symbols: g.symbols,
       heldSymbols: heldByGroup.get(g.key) ?? [],
       isOther: g.isOther,
+      isCore: Boolean(g.isCore),
     };
   });
 

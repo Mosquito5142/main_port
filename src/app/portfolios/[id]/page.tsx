@@ -34,10 +34,11 @@ export default async function PortfolioDetailPage({
   const groupRows: EditableGroup[] = view.groups.map((g) => ({
     key: g.key,
     label: g.label,
-    targetPct: g.targetPct,
+    targetPct: g.baseTargetPct ?? g.targetPct,
     color: g.color,
     symbols: g.symbols,
     isOther: g.isOther,
+    isCore: g.isCore,
     actualPct: g.actualPct,
     marketValue: g.marketValue,
     actionAmount: g.actionAmount,

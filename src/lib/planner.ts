@@ -58,6 +58,7 @@ export interface PlanGroup {
   gap: number;
   /** เงินที่แผนนี้จัดสรรให้หมวดนี้ */
   allocated: number;
+  isCore?: boolean;
 }
 
 export interface InvestmentPlan {
@@ -111,6 +112,7 @@ export async function buildInvestmentPlan(
         gap: targetValueAfter - g.marketValue, // + = ยังขาด ต้องเติม
         allocated: 0,
         actualPctAfter: 0,
+        isCore: g.isCore,
       };
     });
 

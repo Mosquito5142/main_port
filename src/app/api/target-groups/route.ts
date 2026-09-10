@@ -43,6 +43,7 @@ export async function PUT(req: Request) {
       if (pct < 0) return fail(`สัดส่วนของ "${label}" ติดลบไม่ได้`);
 
       const isOther = Boolean(g.isOther) || key === OTHER_KEY;
+      const isCore = Boolean(g.isCore);
       const symbols: string[] = [];
       for (const s of Array.isArray(g.symbols) ? g.symbols : []) {
         const sym = String(s || '').toUpperCase().trim();
@@ -53,8 +54,11 @@ export async function PUT(req: Request) {
         seenSymbols.set(sym, label);
         symbols.push(sym);
       }
-      if (!isOther && symbols.length === 0 && pct > 0) {
+      if (!isOther && !isCore && symbols.length === 0 && pct > 0) {
         return fail(`หมวด "${label}" ตั้งเป้า ${pct}% แต่ยังไม่ได้ใส่หุ้น`);
+      }
+      if (isCore && symbols.length === 0) {
+        return fail(`หมวดแกนหลัก "${label}" ต้องมีหุ้นอย่างน้อย 1 ตัว`);
       }
 
       groups.push({
@@ -64,15 +68,28 @@ export async function PUT(req: Request) {
         color: str(g.color) ?? '#66BB6A',
         sortOrder: 0,
         isOther,
+        isCore,
         symbols,
       });
     }
 
+    const hasCore = groups.some((g) => g.isCore);
     const total = groups.reduce((a, g) => a + g.targetPct, 0);
-    if (total > 100.0001) return fail(`สัดส่วนรวมเกิน 100% (ตอนนี้ ${total.toFixed(2)}%)`);
+    const satelliteTotal = groups
+      .filter((g) => !g.isCore)
+      .reduce((a, g) => a + g.targetPct, 0);
+
+    if (!hasCore && total > 100.0001) {
+      return fail(`สัดส่วนรวมเกิน 100% (ตอนนี้ ${total.toFixed(2)}%)`);
+    }
+    if (hasCore && satelliteTotal > 100.0001) {
+      return fail(
+        `สัดส่วนรวมของกลุ่มดาวบริวารเกิน 100% (ตอนนี้ ${satelliteTotal.toFixed(2)}%)`
+      );
+    }
 
     await saveTargetGroups(pid, groups);
-    return ok({ saved: groups.length, total });
+    return ok({ saved: groups.length, total: hasCore ? satelliteTotal : total });
   } catch (err) {
     return handle(err);
   }

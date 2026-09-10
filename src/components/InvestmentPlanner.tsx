@@ -18,6 +18,7 @@ interface PlanGroup {
   key: string; label: string; color: string;
   targetPct: number; actualPctNow: number; actualPctAfter: number;
   gap: number; allocated: number;
+  isCore?: boolean;
 }
 interface Plan {
   currency: string; budget: number; allocated: number; leftover: number;
@@ -203,12 +204,29 @@ export default function InvestmentPlanner({ portfolioId }: { portfolioId: number
                     <div key={g.key} className="rounded-xl border border-leaf/60 bg-surface/70 p-3"
                          style={{ borderLeft: `4px solid ${g.color}` }}>
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="text-sm font-semibold text-forest">{g.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-semibold text-forest">{g.label}</span>
+                          {g.isCore && (
+                            <span className="rounded bg-blue-50 px-1 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">
+                              ⭐ Core
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs text-forest/60">
-                          เป้า <b className="tabular-nums text-forest">{g.targetPct.toFixed(2)}%</b>
-                          {' · '}ตอนนี้ <b className="tabular-nums">{g.actualPctNow.toFixed(2)}%</b>
-                          {' → '}
-                          <b className="tabular-nums text-grass">{g.actualPctAfter.toFixed(2)}%</b>
+                          {g.isCore ? (
+                            <>
+                              แกนหลัก ตอนนี้ <b className="tabular-nums">{g.actualPctNow.toFixed(2)}%</b>
+                              {' → '}
+                              <b className="tabular-nums text-grass">{g.actualPctAfter.toFixed(2)}%</b>
+                            </>
+                          ) : (
+                            <>
+                              เป้า <b className="tabular-nums text-forest">{g.targetPct.toFixed(2)}%</b>
+                              {' · '}ตอนนี้ <b className="tabular-nums">{g.actualPctNow.toFixed(2)}%</b>
+                              {' → '}
+                              <b className="tabular-nums text-grass">{g.actualPctAfter.toFixed(2)}%</b>
+                            </>
+                          )}
                           {g.allocated > 0.01 && (
                             <> · เติม <b className="tabular-nums">{fmtMoney(g.allocated)}</b> {cur}</>
                           )}
