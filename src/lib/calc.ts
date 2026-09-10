@@ -1,8 +1,8 @@
 // ฟังก์ชันคำนวณล้วน ๆ (ใช้ได้ทั้งฝั่ง server และ client)
 import type { LevelKind, Trade } from './types';
 
-/** ต่ำกว่านี้ถือว่าไม่มีของเหลือแล้ว (กันเศษ floating point จากหุ้นเศษส่วน) */
-export const QTY_EPSILON = 1e-9;
+/** ต่ำกว่านี้ถือว่าไม่มีของเหลือแล้ว (กันเศษ floating point และเศษปัดทศนิยมจากโบรกเกอร์หุ้นเศษส่วน) */
+export const QTY_EPSILON = 1e-4;
 
 export interface Lot {
   quantity: number;
