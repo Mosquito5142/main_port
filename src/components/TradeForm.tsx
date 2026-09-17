@@ -255,7 +255,12 @@ export default function TradeForm({
             <input
               className="input tabular-nums"
               type="number"
-              step="0.000001"
+              // step="any" เท่านั้น — ห้ามล็อกจำนวนทศนิยม
+              // เศษหุ้นจริงมีทศนิยมได้หลายตำแหน่ง (เช่น META 4.4263074 = 7 ตำแหน่ง)
+              // ถ้าตั้ง step เป็น 0.000001 เบราว์เซอร์จะไม่ยอมให้ส่งค่าที่ไม่ลงกริด
+              // ทำให้ปุ่ม "ปิดโพสิชั่น" ที่เติมค่าเต็มความละเอียดใช้ไม่ได้
+              // ฝั่ง server ตรวจ "ขายเกินที่ถือ" ให้อยู่แล้ว (เผื่อ 1e-9)
+              step="any"
               min="0"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
@@ -282,7 +287,8 @@ export default function TradeForm({
             <input
               className="input tabular-nums"
               type="number"
-              step="0.0001"
+              // ราคาจาก Yahoo มีทศนิยมได้หลายตำแหน่งเหมือนกัน — อย่าล็อกกริด
+              step="any"
               min="0"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -296,7 +302,7 @@ export default function TradeForm({
             <input
               className="input tabular-nums"
               type="number"
-              step="0.01"
+              step="any"
               min="0"
               value={fee}
               onChange={(e) => setFee(e.target.value)}

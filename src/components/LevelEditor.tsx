@@ -91,7 +91,7 @@ export default function LevelEditor({
           <input
             className="input"
             type="number"
-            step="0.0001"
+            step="any"
             min="0"
             value={price}
             onChange={(e) => setPrice(e.target.value)}

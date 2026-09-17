@@ -112,7 +112,7 @@ export default function LevelQuickAdd({
           <input
             className="input tabular-nums"
             type="number"
-            step="0.0001"
+            step="any"
             min="0"
             value={price}
             onChange={(e) => setPrice(e.target.value)}

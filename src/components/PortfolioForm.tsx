@@ -104,7 +104,7 @@ export default function PortfolioForm({
           <input
             className="input"
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             value={form.initial_cash}
             onChange={(e) => set('initial_cash', e.target.value)}
