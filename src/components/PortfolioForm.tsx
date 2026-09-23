@@ -24,6 +24,7 @@ export default function PortfolioForm({
     description: initial?.description ?? '',
     currency: initial?.currency ?? 'THB',
     initial_cash: String(initial?.initial_cash ?? 100000),
+    cash: String(initial?.cash ?? initial?.initial_cash ?? 100000),
     color: initial?.color ?? '#66BB6A',
   });
 
@@ -39,7 +40,11 @@ export default function PortfolioForm({
         {
           method: editing ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...form, initial_cash: Number(form.initial_cash || 0) }),
+          body: JSON.stringify({
+            ...form,
+            initial_cash: Number(form.initial_cash || 0),
+            cash: Number(form.cash || 0),
+          }),
         }
       );
       const json = await res.json();
@@ -109,6 +114,22 @@ export default function PortfolioForm({
             value={form.initial_cash}
             onChange={(e) => set('initial_cash', e.target.value)}
           />
+          <p className="mt-1 text-[11px] text-forest/45">ใช้คิด % ผลตอบแทนรวมตั้งแต่เริ่มพอร์ต</p>
+        </div>
+
+        <div>
+          <label className="label">เงินสดคงเหลือ</label>
+          <input
+            className="input"
+            type="number"
+            step="any"
+            min="0"
+            value={form.cash}
+            onChange={(e) => set('cash', e.target.value)}
+          />
+          <p className="mt-1 text-[11px] text-forest/45">
+            กรอก/แก้เองอิสระ ไม่ผูกกับการซื้อขายหุ้น
+          </p>
         </div>
 
         <div>

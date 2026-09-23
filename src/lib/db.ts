@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS gp_portfolios (
   description   TEXT,
   currency      TEXT NOT NULL DEFAULT 'USD',
   initial_cash  REAL NOT NULL DEFAULT 0,
+  cash          REAL NOT NULL DEFAULT 0,
   color         TEXT NOT NULL DEFAULT '#66BB6A',
   is_archived   INTEGER NOT NULL DEFAULT 0,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
@@ -194,6 +195,25 @@ function ensureSchema(): Promise<void> {
           );
         } catch {
           // ถ้ามีคอลัมน์อยู่แล้ว SQLite จะ error ก็ข้ามไป
+        }
+        // Migration ปลอดภัย: เพิ่มคอลัมน์ cash (เงินสดกรอกเองอิสระ ไม่ผูกกับการซื้อขาย) ถ้ายังไม่มี
+        // เพิ่งสร้างคอลัมน์ครั้งแรก -> backfill ด้วยยอดเงินสดที่เคยคำนวณจากประวัติซื้อขายเดิม
+        // (initial_cash - ยอดซื้อสะสม + ยอดขายสะสม) เพื่อไม่ให้ตัวเลขกระโดดเป็น 0 ตอนอัปเดต
+        try {
+          await db().execute(`ALTER TABLE gp_portfolios ADD COLUMN cash REAL NOT NULL DEFAULT 0`);
+          await db().execute(`
+            UPDATE gp_portfolios SET cash = (
+              SELECT
+                CASE WHEN gp_portfolios.initial_cash > 0 THEN gp_portfolios.initial_cash
+                     ELSE COALESCE(SUM(CASE WHEN t.side = 'buy' THEN t.quantity * t.price + t.fee ELSE 0 END), 0)
+                END
+                - COALESCE(SUM(CASE WHEN t.side = 'buy' THEN t.quantity * t.price + t.fee ELSE 0 END), 0)
+                + COALESCE(SUM(CASE WHEN t.side = 'sell' THEN t.quantity * t.price - t.fee ELSE 0 END), 0)
+              FROM gp_trades t WHERE t.portfolio_id = gp_portfolios.id
+            )
+          `);
+        } catch {
+          // ถ้ามีคอลัมน์อยู่แล้ว SQLite จะ error ก็ข้ามไป (ไม่ backfill ซ้ำ กันทับค่าที่ผู้ใช้แก้เองไปแล้ว)
         }
         return;
       }

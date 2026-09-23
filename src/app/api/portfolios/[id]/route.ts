@@ -38,6 +38,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     if (body.description !== undefined) set('description', str(body.description));
     if (body.currency !== undefined) set('currency', str(body.currency) ?? 'THB');
     if (body.initial_cash !== undefined) set('initial_cash', num(body.initial_cash, 0));
+    if (body.cash !== undefined) set('cash', num(body.cash, 0));
     if (body.color !== undefined) set('color', str(body.color) ?? '#66BB6A');
     if (body.is_archived !== undefined) set('is_archived', Boolean(body.is_archived));
 

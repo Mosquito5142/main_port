@@ -9,6 +9,8 @@ export interface Portfolio {
   description: string | null;
   currency: string;
   initial_cash: number;
+  /** เงินสดคงเหลือ — กรอก/แก้ไขเองได้ทุกเมื่อ ไม่ผูกกับการซื้อขายหุ้น */
+  cash: number;
   color: string;
   is_archived: boolean;
   created_at: string;

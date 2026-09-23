@@ -174,7 +174,6 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
   let costValue = 0;
   let realizedPnl = 0;
   let buyAmount = 0;
-  let sellAmount = 0;
   let dayChange = 0;
 
   const rows = [...stockIds].map((id) => {
@@ -188,7 +187,6 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     costValue += lot.costValue;
     realizedPnl += lot.realizedPnl;
     buyAmount += lot.buyAmount;
-    sellAmount += lot.sellAmount;
     if (price !== null && quote?.previousClose)
       dayChange += lot.quantity * (price - quote.previousClose);
 
@@ -197,7 +195,9 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
 
   const capitalBase =
     Number(portfolio.initial_cash) > 0 ? Number(portfolio.initial_cash) : buyAmount;
-  const cash = capitalBase - buyAmount + sellAmount;
+  // เงินสด = ตัวเลขที่ผู้ใช้กรอก/แก้เองอิสระ ไม่คำนวณจากยอดซื้อขายอีกต่อไป
+  // (ขายหุ้นแล้วไม่ต้องแปลงเป็นเงินสดอัตโนมัติ — ผู้ใช้เข้ามาแก้จำนวนเองทีหลังได้ทุกเมื่อ)
+  const cash = Number(portfolio.cash) || 0;
   const netWorth = cash + marketValue;
   const unrealizedPnl = marketValue - costValue;
   const base = netWorth > 0 ? netWorth : marketValue;
