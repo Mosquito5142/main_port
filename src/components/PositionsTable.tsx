@@ -6,10 +6,16 @@ export default function PositionsTable({
   positions,
   showTarget = true,
   currency = "THB",
+  cash,
+  netWorth,
 }: {
   positions: Position[];
   showTarget?: boolean;
   currency?: string;
+  /** ใส่แล้วจะโชว์แถวเงินสดต่อท้ายตาราง — ไม่ใส่ก็ไม่มีผลอะไรกับเดิม */
+  cash?: number;
+  /** พอร์ต + เงินสดรวม ใช้คิด % ของแถวเงินสด (คนละฐานกับ % ของหุ้นแต่ละตัวที่คิดจากมูลค่าหุ้นอย่างเดียว) */
+  netWorth?: number;
 }) {
   return (
     <div className="table-wrap">
@@ -128,6 +134,32 @@ export default function PositionsTable({
             </tr>
           ))}
         </tbody>
+        {cash !== undefined && (
+          <tfoot>
+            <tr className="border-t-2 border-leaf/60 bg-mist/40">
+              <td className="font-bold text-forest">💵 เงินสด</td>
+              <td className="num text-forest/30">—</td>
+              <td className="num text-forest/30">—</td>
+              <td className="num text-forest/30">—</td>
+              <td className="num font-semibold">{fmtMoney(cash)}</td>
+              <td className="num text-forest/30">—</td>
+              <td className="num">
+                {netWorth ? (
+                  <span
+                    className="font-semibold"
+                    title="% ของมูลค่าพอร์ตรวม (หุ้น + เงินสด) — คนละฐานกับ % ของหุ้นแต่ละตัวที่คิดจากมูลค่าหุ้นอย่างเดียว"
+                  >
+                    {((cash / netWorth) * 100).toFixed(2)}%
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </td>
+              {showTarget && <td className="num text-forest/30">—</td>}
+              {showTarget && <td className="num text-forest/30">—</td>}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

@@ -305,7 +305,12 @@ export default async function DashboardPage({
             cta="บันทึกการซื้อ"
           />
         ) : (
-          <PositionsTable positions={positions} currency={fx.code} />
+          <PositionsTable
+            positions={positions}
+            currency={fx.code}
+            cash={t.cash}
+            netWorth={t.netWorth}
+          />
         )}
       </section>
 

@@ -165,7 +165,12 @@ export default async function PortfolioDetailPage({
             cta="บันทึกการซื้อ"
           />
         ) : (
-          <PositionsTable positions={positions} currency={p.currency} />
+          <PositionsTable
+            positions={positions}
+            currency={p.currency}
+            cash={t.cash}
+            netWorth={t.netWorth}
+          />
         )}
       </section>
 
