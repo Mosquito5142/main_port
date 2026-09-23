@@ -7,6 +7,7 @@ import PositionsTable from '@/components/PositionsTable';
 import TradesTable from '@/components/TradesTable';
 import ClosedPositions from '@/components/ClosedPositions';
 import TargetGroupEditor, { type EditableGroup } from '@/components/TargetGroupEditor';
+import PortfolioActions from '@/components/PortfolioActions';
 import { getFx } from '@/lib/currency';
 import AllocationChart from '@/components/charts/AllocationChart';
 import PortfolioHistoryChart from '@/components/charts/PortfolioHistoryChart';
@@ -156,7 +157,10 @@ export default async function PortfolioDetailPage({
       </div>
 
       <section className="mb-6">
-        <h2 className="card-title mb-3">รายการหุ้นในพอร์ต</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="card-title">รายการหุ้นในพอร์ต</h2>
+          <PortfolioActions portfolio={raw.portfolio} />
+        </div>
         {positions.length === 0 ? (
           <Empty
             title="ยังไม่มีหุ้นในพอร์ตนี้"
