@@ -59,6 +59,10 @@ export default async function DashboardPage({
     .sort((a, b) => Math.abs(b.changePercent!) - Math.abs(a.changePercent!))
     .slice(0, 5);
 
+  // พอร์ตขยับวันนี้เท่าไหร่ (รวมทุกตัว) — % เทียบกับมูลค่าพอร์ตรวมเมื่อวาน (เงินสดไม่ขยับระหว่างวัน)
+  const dayChangeBase = t.netWorth - t.dayChange;
+  const dayChangePct = dayChangeBase > 0 ? (t.dayChange / dayChangeBase) * 100 : 0;
+
 
   return (
     <>
@@ -261,6 +265,13 @@ export default async function DashboardPage({
         </Card>
 
         <Card title="ขยับแรงวันนี้">
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-leaf/50 bg-surface/60 px-3 py-2.5">
+            <span className="text-xs font-medium text-forest/60">พอร์ตขยับรวมวันนี้</span>
+            <div className={`text-right font-bold tabular-nums leading-tight ${toneClass(t.dayChange)}`}>
+              <div>{fmtMoney(t.dayChange)}</div>
+              <div className="text-xs">{fmtPct(dayChangePct)}</div>
+            </div>
+          </div>
           {movers.length === 0 ? (
             <div className="py-6 text-center text-sm text-forest/50">ยังไม่มีข้อมูลราคา</div>
           ) : (
