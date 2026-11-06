@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const groupLines = plan.groups
       .map(
         (g) =>
-          `- ${g.label}: เป้า ${f(g.targetPct)}% | ตอนนี้ ${f(g.actualPctNow)}% → หลังลง ${f(g.actualPctAfter)}%`
+          `- ${g.label}: เป้า ${g.targetLabel ?? `${f(g.targetPct)}%`} | ตอนนี้ ${f(g.actualPctNow)}% → หลังลง ${f(g.actualPctAfter)}%`
       )
       .join('\n');
 

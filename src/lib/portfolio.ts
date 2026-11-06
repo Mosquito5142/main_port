@@ -10,17 +10,16 @@ import {
   levelStatus,
   QTY_EPSILON,
   rebalanceAmount,
-  round,
   type TradeStats,
 } from './calc';
+import { bandStatus, formatBand, type BandStatus } from './bands';
 import {
+  groupFloats,
   groupOf,
   indexGroups,
   listTargetGroups,
   OTHER_KEY,
   targetPctOfSymbol,
-  type GroupIndex,
-  type TargetGroup,
 } from './targetGroups';
 import type {
   Level,
@@ -82,19 +81,38 @@ export function listTrades(portfolioId?: number, stockId?: number) {
 // ---------------------------------------------------------------
 // ตำแหน่งถือครอง + สัดส่วนเป้าหมาย
 // ---------------------------------------------------------------
-/** สรุปสัดส่วนจริงเทียบเป้าหมาย รายหมวด */
+/** สัดส่วนจริงของหุ้นหนึ่งตัวในหมวด เทียบกรอบของตัวนั้น */
+export interface SymbolAllocation {
+  symbol: string;
+  actualPct: number;
+  targetPct: number | null;
+  targetMin: number | null;
+  targetMax: number | null;
+  hint: string | null;
+  status: BandStatus;
+}
+
+/** สรุปสัดส่วนจริงเทียบกรอบเป้า รายหมวด */
 export interface GroupAllocation {
   key: string;
   label: string;
   color: string;
+  /** เป้ากลาง (ใช้จัดสรรเงิน) */
   targetPct: number;
   baseTargetPct?: number;
+  targetMin: number | null;
+  targetMax: number | null;
+  /** ข้อความกรอบ เช่น "20–25%" */
+  bandLabel: string;
+  hint: string | null;
+  status: BandStatus;
   actualPct: number;
   diffPct: number;
   marketValue: number;
-  /** เงินที่ต้องเติม(+)/ลด(-) เพื่อเข้าเป้า */
+  /** เงินที่ต้องเติม(+)/ลด(-) เพื่อแตะขอบกรอบ — ในกรอบแล้วเป็น 0 */
   actionAmount: number;
   symbols: string[];
+  members: SymbolAllocation[];
   /** หุ้นที่ถืออยู่จริงในหมวดนี้ */
   heldSymbols: string[];
   isOther: boolean;
@@ -204,10 +222,14 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
 
   // ---- รวบรวมมูลค่าและหุ้นที่ถือตามหมวด ----
   const valueByGroup = new Map<string, number>();
+  const valueBySymbol = new Map<string, number>();
   const heldByGroup = new Map<string, string[]>();
+  const otherKey = groupList.find((g) => g.isOther)?.key ?? OTHER_KEY;
   for (const r of rows) {
     if (r.mv <= 0) continue;
-    const key = gidx.symbolToGroup.get(r.stock.symbol.toUpperCase()) ?? OTHER_KEY;
+    const sym = r.stock.symbol.toUpperCase();
+    valueBySymbol.set(sym, (valueBySymbol.get(sym) ?? 0) + r.mv);
+    const key = gidx.symbolToGroup.get(sym) ?? otherKey;
     valueByGroup.set(key, (valueByGroup.get(key) ?? 0) + r.mv);
     if (r.lot.quantity > QTY_EPSILON) {
       const held = heldByGroup.get(key) ?? [];
@@ -215,63 +237,73 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
       heldByGroup.set(key, held);
     }
   }
-  // เงินสดไปกองรวมที่หมวดอื่นๆ
-  if (cash > 0) valueByGroup.set(OTHER_KEY, (valueByGroup.get(OTHER_KEY) ?? 0) + cash);
+  // เงินสดไปกองที่หมวดเงินสดสำรอง (isOther)
+  if (cash > 0) valueByGroup.set(otherKey, (valueByGroup.get(otherKey) ?? 0) + cash);
 
-  // ---- คำนวณ Dynamic Core-Satellite Targets ----
-  // 1. หาผลรวมมูลค่าและสัดส่วนจริงของกลุ่ม Core
-  let coreMv = 0;
-  for (const g of groupList) {
-    if (g.isCore) {
-      coreMv += valueByGroup.get(g.key) ?? 0;
-    }
-  }
-  const coreActualPct = base > 0 ? (coreMv / base) * 100 : 0;
-  // พื้นที่ที่เหลือสำหรับกลุ่ม Satellite
-  const satelliteRemainingPct = Math.max(0, 100 - coreActualPct);
-
-  // 2. ผลรวม Base Target ของกลุ่ม Satellite
-  const satelliteGroups = groupList.filter((g) => !g.isCore);
-  const satelliteBaseSum = satelliteGroups.reduce((a, g) => a + g.targetPct, 0);
-
-  // 3. คำนวณ Dynamic Effective Target % ของแต่ละหมวด
+  // หมวดที่มีกรอบใช้เป้าที่ตั้งไว้ตรง ๆ ไม่ย่อขยายให้รวมเป็น 100
+  // เหลือแค่ Core แบบเก่าที่ไม่ได้ตั้งกรอบ จึงลอยตามสัดส่วนจริง
   const effectiveTargetByGroup = new Map<string, number>();
   for (const g of groupList) {
-    if (g.isCore) {
+    if (groupFloats(g)) {
       const mv = valueByGroup.get(g.key) ?? 0;
-      const actualPct = base > 0 ? (mv / base) * 100 : 0;
-      effectiveTargetByGroup.set(g.key, actualPct);
+      effectiveTargetByGroup.set(g.key, base > 0 ? (mv / base) * 100 : 0);
     } else {
-      const eff =
-        satelliteBaseSum > 0
-          ? round((g.targetPct / satelliteBaseSum) * satelliteRemainingPct, 2)
-          : 0;
-      effectiveTargetByGroup.set(g.key, eff);
+      effectiveTargetByGroup.set(g.key, g.targetPct);
     }
   }
+
+  const cashPctNow = base > 0 ? (cash / base) * 100 : 0;
+  const cashGroup = groupList.find((g) => g.isOther);
+  const cashUnder = cashGroup
+    ? bandStatus(cashPctNow, cashGroup.targetMin, cashGroup.targetMax) === 'under'
+    : false;
 
   const allPositions: Position[] = rows
     .map(({ stock, lot, quote, price, mv }) => {
       const groupKey = groupOf(gidx, stock.symbol);
       const group = gidx.byKey.get(groupKey);
+      const member = gidx.memberBySymbol.get(stock.symbol.toUpperCase()) ?? null;
       const isCore = Boolean(group?.isCore);
       const weight = marketValue > 0 ? (mv / marketValue) * 100 : 0;
+      const portPct = base > 0 ? (mv / base) * 100 : 0;
+      const floats = group ? groupFloats(group) : false;
 
       let targetPercent: number | null = null;
+      let targetLabel: string | null = null;
+      let positionBand: BandStatus | null = null;
+      let hint: string | null = member?.hint ?? null;
       let diffPercent: number | null = null;
       let actionAmount = 0;
 
-      if (groupKey !== OTHER_KEY && group && group.symbols.length > 0) {
-        if (isCore) {
-          targetPercent = weight;
+      if (group && groupKey !== otherKey && !group.isOther) {
+        if (floats) {
+          targetPercent = portPct;
           diffPercent = 0;
-          actionAmount = 0; // ไม่สั่งขาย Core
+          actionAmount = 0;
         } else {
-          const effGroupTarget = effectiveTargetByGroup.get(groupKey) ?? 0;
-          const targetDollar = ((effGroupTarget / 100) * base) / group.symbols.length;
-          actionAmount = targetDollar - mv;
-          targetPercent = marketValue > 0 ? (targetDollar / marketValue) * 100 : null;
-          diffPercent = targetPercent !== null ? weight - targetPercent : null;
+          const aim =
+            member?.targetPct ??
+            targetPctOfSymbol(gidx, stock.symbol) ??
+            0;
+          const min = member?.targetMin ?? null;
+          const max = member?.targetMax ?? null;
+          const hasOwnBand = min != null || max != null;
+          positionBand = hasOwnBand ? bandStatus(portPct, min, max) : null;
+          targetPercent = aim;
+          targetLabel = hasOwnBand ? formatBand(min, max, aim) : aim > 0 ? formatBand(null, null, aim) : null;
+          diffPercent = portPct - aim;
+          if (positionBand === 'under') {
+            actionAmount = (((min ?? aim) / 100) * base) - mv;
+          } else if (positionBand === 'over') {
+            actionAmount = (((max ?? aim) / 100) * base) - mv;
+          } else if (!hasOwnBand && aim > 0) {
+            actionAmount = ((aim / 100) * base) - mv;
+          }
+          // hint คือ "อย่าใช้เงินใหม่" ไม่ได้ห้ามลดเมื่อเกินกรอบ
+          if (actionAmount > 0) {
+            if (hint === 'no_new' || hint === 'wait_earn') actionAmount = 0;
+            if (hint === 'no_avg' && cashUnder) actionAmount = 0;
+          }
         }
       }
 
@@ -288,7 +320,11 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
         unrealizedPnl: mv - lot.costValue,
         unrealizedPct: lot.costValue > 0 ? ((mv - lot.costValue) / lot.costValue) * 100 : null,
         weight,
+        portPct,
         targetPercent,
+        targetLabel,
+        bandStatus: positionBand,
+        hint,
         diffPercent,
         actionAmount,
         changePercent: quote?.changePercent ?? null,
@@ -312,6 +348,30 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
     const mv = valueByGroup.get(g.key) ?? 0;
     const actualPct = base > 0 ? (mv / base) * 100 : 0;
     const effTarget = effectiveTargetByGroup.get(g.key) ?? g.targetPct;
+    const floats = groupFloats(g);
+    const status: BandStatus = floats ? 'ok' : bandStatus(actualPct, g.targetMin, g.targetMax);
+
+    // ในกรอบแล้วไม่สะกิดให้ซื้อ/ขาย — นอกกรอบให้แตะขอบที่ใกล้สุด
+    let actionAmount = 0;
+    if (!floats && status === 'under') {
+      actionAmount = (((g.targetMin ?? g.targetPct) / 100) * base) - mv;
+    } else if (!floats && status === 'over') {
+      actionAmount = (((g.targetMax ?? g.targetPct) / 100) * base) - mv;
+    }
+
+    const members = (g.members ?? []).map((m) => {
+      const symMv = valueBySymbol.get(m.symbol.toUpperCase()) ?? 0;
+      const symPct = base > 0 ? (symMv / base) * 100 : 0;
+      return {
+        symbol: m.symbol,
+        actualPct: symPct,
+        targetPct: m.targetPct,
+        targetMin: m.targetMin,
+        targetMax: m.targetMax,
+        hint: m.hint,
+        status: bandStatus(symPct, m.targetMin, m.targetMax),
+      };
+    });
 
     return {
       key: g.key,
@@ -319,11 +379,17 @@ export async function getPortfolioView(portfolioId: number): Promise<PortfolioVi
       color: g.color,
       targetPct: effTarget,
       baseTargetPct: g.targetPct,
+      targetMin: g.targetMin,
+      targetMax: g.targetMax,
+      bandLabel: floats ? 'ลอยตัว' : formatBand(g.targetMin, g.targetMax, g.targetPct),
+      hint: g.hint,
+      status,
       actualPct,
-      diffPct: g.isCore ? 0 : actualPct - effTarget,
+      diffPct: floats ? 0 : actualPct - effTarget,
       marketValue: mv,
-      actionAmount: g.isCore ? 0 : (effTarget / 100) * base - mv,
+      actionAmount,
       symbols: g.symbols,
+      members,
       heldSymbols: heldByGroup.get(g.key) ?? [],
       isOther: g.isOther,
       isCore: Boolean(g.isCore),

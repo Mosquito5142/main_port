@@ -1,4 +1,5 @@
 import 'server-only';
+import { hintLabel } from './bands';
 import { getPortfolioView, getLevelProximity } from './portfolio';
 import type { PortfolioView } from './portfolio';
 import { getQuotes } from './yahoo';
@@ -9,8 +10,8 @@ import { getQuotes } from './yahoo';
  * ตัวเลขทุกตัวคำนวณจากสูตรตรง ๆ ในไฟล์นี้ ไม่ได้ให้ AI เดา — AI (ถ้าเปิดใช้)
  * มีหน้าที่แค่สรุปเป็นภาษาคน/ทักท้วงจากตัวเลขชุดเดียวกันนี้เท่านั้น
  *
- * หลักการ: เติมเงินเข้าหมวดที่ "ห่างจากเป้าที่ตั้งไว้เองมากที่สุดก่อน" (rebalance)
- * ไม่ใช่การเลือกหุ้นให้ — สัดส่วนเป้าหมายมาจากที่ผู้ใช้ตั้งไว้เองในหน้าพอร์ต
+ * หลักการ: กันเงินสดสำรองให้ถึงเป้ากลางก่อน แล้วเติมเฉพาะหมวดที่หลุดใต้กรอบ
+ * ไม่ไล่ซื้อตัวที่ติด hint (อย่าเติม / รอดูงบ / อย่าถัวจนกว่าเงินสดเข้าเป้า)
  */
 
 export interface PlanBuy {
@@ -51,10 +52,11 @@ export interface PlanGroup {
   label: string;
   color: string;
   targetPct: number;
+  targetLabel?: string;
   actualPctNow: number;
   /** สัดส่วนหลังลงเงินตามแผนนี้ */
   actualPctAfter: number;
-  /** เงินที่ยังขาดอยู่เพื่อเข้าเป้า (ก่อนเติม) */
+  /** เงินที่ยังขาดอยู่เพื่อเข้าขอบกรอบ (ก่อนเติม) */
   gap: number;
   /** เงินที่แผนนี้จัดสรรให้หมวดนี้ */
   allocated: number;
@@ -96,27 +98,18 @@ export async function buildInvestmentPlan(
   // (ใช้ฐานเดียวกับที่หน้าพอร์ตใช้ คือรวมเงินสดด้วย)
   const potAfter = marketValueNow + cash + budget;
 
-  // ── 1. หาช่องว่างรายหมวด (เฉพาะหมวดที่ตั้งเป้าไว้ ไม่รวม "อื่นๆ/เงินสด") ──
-  const planGroups = view.groups
-    .filter((g) => !g.isOther && g.targetPct > 0)
-    .map((g) => {
-      const targetValueAfter = (potAfter * g.targetPct) / 100;
-      return {
-        key: g.key,
-        label: g.label,
-        color: g.color,
-        targetPct: g.targetPct,
-        actualPctNow: g.actualPct,
-        marketValue: g.marketValue,
-        symbols: g.symbols,
-        gap: targetValueAfter - g.marketValue, // + = ยังขาด ต้องเติม
-        allocated: 0,
-        actualPctAfter: 0,
-        isCore: g.isCore,
-      };
-    });
+  const currentBase = view.totals.netWorth > 0 ? view.totals.netWorth : marketValueNow;
+  const cashGroup = view.groups.find((g) => g.isOther);
+  const cashAim = cashGroup?.targetPct ?? 0;
+  // เงินก้อนใหม่ที่ยังไม่ใช้ซื้อ กลายเป็นเงินสด — กันไว้ให้ถึงเป้ากลางก่อน
+  const reserveForCash = Math.max(0, Math.min(budget, (cashAim / 100) * potAfter - cash));
+  const investBudget = Math.max(0, budget - reserveForCash);
+  if (reserveForCash > 1) {
+    warnings.push(`กันเงินสดสำรองให้เข้าเป้ากลาง ${cashAim}% ก่อน ส่วนที่เหลือค่อยจัดสรรซื้อ`);
+  }
 
-  if (!planGroups.length) {
+  const stockGroups = view.groups.filter((g) => !g.isOther);
+  if (!stockGroups.length) {
     warnings.push('ยังไม่ได้ตั้งสัดส่วนเป้าหมายรายหมวด — ไปตั้งที่หน้ารายละเอียดพอร์ตก่อน');
     return {
       currency, budget, allocated: 0, leftover: budget,
@@ -126,50 +119,90 @@ export async function buildInvestmentPlan(
     };
   }
 
-  // ── 2. แบ่งเงินตามสัดส่วนของช่องว่าง (หมวดที่ห่างเป้ามากได้เยอะกว่า) ──
-  const positiveGap = planGroups.filter((g) => g.gap > EPS);
-  const totalGap = positiveGap.reduce((a, g) => a + g.gap, 0);
-
-  let allocated = 0;
-  if (totalGap > EPS) {
-    if (totalGap >= budget) {
-      // เงินไม่พอปิดช่องว่างทั้งหมด → แบ่งตามสัดส่วนช่องว่าง
-      for (const g of positiveGap) {
-        g.allocated = (budget * g.gap) / totalGap;
-        allocated += g.allocated;
-      }
-    } else {
-      // เงินเหลือหลังปิดช่องว่างครบ → ปิดให้เต็มก่อน ที่เหลือแบ่งตามน้ำหนักเป้าหมาย
-      for (const g of positiveGap) g.allocated = g.gap;
-      allocated = totalGap;
-      const rest = budget - totalGap;
-      const targetSum = planGroups.reduce((a, g) => a + g.targetPct, 0);
-      if (targetSum > EPS) {
-        for (const g of planGroups) {
-          const extra = (rest * g.targetPct) / targetSum;
-          g.allocated += extra;
-          allocated += extra;
-        }
-      }
-      warnings.push(
-        'เงินก้อนนี้มากกว่าที่ต้องใช้ปิดช่องว่างทั้งหมด — ส่วนที่เกินถูกแบ่งตามน้ำหนักเป้าหมาย'
-      );
-    }
-  } else {
-    warnings.push('ทุกหมวดถึงเป้าหรือเกินเป้าแล้ว — ไม่มีหมวดไหนที่ต้องเติมเพื่อเข้าเป้า');
-  }
-
-  // ── 3. แตกเงินของแต่ละหมวดลงรายตัว ตามช่องว่างรายตัว ──
   const posBySymbol = new Map(view.positions.map((p) => [p.symbol, p]));
 
-  // หุ้นที่ตั้งเป้าไว้แต่ยังไม่เคยซื้อ จะไม่มีอยู่ใน positions เลยไม่มีราคา
-  // ต้องดึงราคาสดมาเอง ไม่งั้นตัวใหม่ ๆ จะถูกข้ามทั้งที่เป็นตัวที่ "ควรเติม" ที่สุด
+  type Slot = {
+    groupKey: string;
+    groupLabel: string;
+    symbol: string;
+    aimPct: number;
+    gap: number;
+  };
+  const raw: Slot[] = [];
+  const blocked = new Set<string>();
+
+  for (const g of stockGroups) {
+    const gMv = g.marketValue;
+    const gPctAfter = potAfter > EPS ? (gMv / potAfter) * 100 : 0;
+    const gMin = g.targetMin;
+    const gMax = g.targetMax ?? 100;
+    // เติมเฉพาะหมวดที่หลุดใต้กรอบ หมวดที่พอดีหรือเกินจะไม่รับเงินใหม่
+    const categoryNeeds =
+      gMin != null ? gPctAfter < gMin - 0.2 : gPctAfter < g.targetPct - 0.2;
+    if (!categoryNeeds) continue;
+
+    const categoryCapPct = g.targetPct > 0 ? Math.min(g.targetPct, gMax) : gMin ?? 0;
+    const categoryRoom = Math.max(0, (categoryCapPct / 100) * potAfter - gMv);
+    if (categoryRoom <= EPS) continue;
+
+    const open: Slot[] = [];
+    for (const m of g.members) {
+      const blockedByHint =
+        m.hint === 'no_new' ||
+        m.hint === 'wait_earn' ||
+        (m.hint === 'no_avg' && reserveForCash > 1);
+      const mv = (m.actualPct / 100) * currentBase;
+      const min = m.targetMin ?? 0;
+      const max = m.targetMax ?? gMax;
+      const aim = m.targetPct ?? 0;
+      const pctAfter = potAfter > EPS ? (mv / potAfter) * 100 : 0;
+      const belowMin = min > 0.2 && pctAfter < min - 0.2;
+      const belowAim = aim > 0.2 && pctAfter < aim - 0.2;
+      if (!belowMin && !belowAim) continue;
+      if (blockedByHint) {
+        const label = hintLabel(m.hint);
+        if (label) blocked.add(`${m.symbol} ${label}`);
+        continue;
+      }
+      const ceiling = Math.min(max, aim > 0 ? Math.max(aim, min) : min);
+      const gap = Math.max(0, (ceiling / 100) * potAfter - mv);
+      if (gap > EPS) {
+        open.push({ groupKey: g.key, groupLabel: g.label, symbol: m.symbol, aimPct: aim, gap });
+      }
+    }
+
+    // แผนเก่าที่ยังไม่มีเป้ารายตัว — หารเท่าจากเป้าหมวด
+    if (!g.members.length && g.symbols.length && g.targetPct > 0) {
+      const each = g.targetPct / g.symbols.length;
+      for (const sym of g.symbols) {
+        const mv = posBySymbol.get(sym)?.marketValue ?? 0;
+        const gap = Math.max(0, (each / 100) * potAfter - mv);
+        if (gap > EPS) {
+          open.push({ groupKey: g.key, groupLabel: g.label, symbol: sym, aimPct: each, gap });
+        }
+      }
+    }
+
+    const gapSum = open.reduce((a, s) => a + s.gap, 0);
+    const fit = gapSum > categoryRoom && gapSum > EPS ? categoryRoom / gapSum : 1;
+    for (const s of open) raw.push({ ...s, gap: s.gap * fit });
+  }
+
+  if (blocked.size) warnings.push(`ไม่ใส่เงินใหม่: ${[...blocked].join(' · ')}`);
+
+  const totalGap = raw.reduce((a, s) => a + s.gap, 0);
+  const spendScale = totalGap > EPS ? Math.min(1, investBudget / totalGap) : 0;
+  const slots = raw
+    .map((s) => ({ ...s, amount: s.gap * spendScale }))
+    .filter((s) => s.amount > EPS);
+
+  if (!slots.length && reserveForCash <= 1 && blocked.size === 0) {
+    warnings.push('ทุกหมวดอยู่ในกรอบแล้ว — ไม่มีตัวที่ต้องใช้เงินใหม่เพื่อเข้ากรอบ');
+  }
+
+  // หุ้นที่ยังไม่เคยซื้อจะไม่มีราคาใน positions — ดึงราคาสดมาเอง
   const missingPrice = [
-    ...new Set(
-      planGroups
-        .flatMap((g) => g.symbols)
-        .filter((s) => !(posBySymbol.get(s)?.price ?? 0))
-    ),
+    ...new Set(slots.map((s) => s.symbol).filter((s) => !(posBySymbol.get(s)?.price ?? 0))),
   ];
   const extraQuotes = missingPrice.length
     ? await getQuotes(missingPrice).catch(() => new Map())
@@ -184,103 +217,80 @@ export async function buildInvestmentPlan(
   }
 
   const buys: PlanBuy[] = [];
-
-  for (const g of planGroups) {
-    if (g.allocated <= EPS || !g.symbols.length) continue;
-
-    // กติกาเดียวกับหน้าพอร์ต: เป้ารายตัว = เป้าหมวด ÷ จำนวนหุ้นในหมวด
-    const perSymbolTarget = (potAfter * g.targetPct) / 100 / g.symbols.length;
-
-    const cand = g.symbols.map((sym) => {
-      const pos = posBySymbol.get(sym);
-      const mv = pos?.marketValue ?? 0;
-      return { sym, pos, gap: perSymbolTarget - mv };
-    });
-
-    const posGaps = cand.filter((c) => c.gap > EPS);
-    const gapSum = posGaps.reduce((a, c) => a + c.gap, 0);
-    // ถ้าทุกตัวในหมวดเกินเป้าหมดแล้ว ให้กระจายเท่า ๆ กันแทน
-    const targets = gapSum > EPS ? posGaps : cand;
-    const weightOf = (c: (typeof cand)[number]) =>
-      gapSum > EPS ? c.gap / gapSum : 1 / cand.length;
-
-    for (const c of targets) {
-      const amount = g.allocated * weightOf(c);
-      if (amount <= EPS) continue;
-
-      const quoted = extraQuotes.get(c.sym)?.price ?? null;
-      const price = c.pos?.price ?? quoted ?? null;
-      if (!price || price <= 0) {
-        warnings.push(`${c.sym}: ดึงราคาล่าสุดไม่ได้ เลยคำนวณจำนวนหุ้นไม่ได้ (ข้ามตัวนี้)`);
-        continue;
-      }
-
-      const heldQty = c.pos?.quantity ?? 0;
-      const avg = c.pos && heldQty > EPS ? c.pos.avgCost : null;
-      const qty = amount / price;
-      const oldCost = avg !== null ? avg * heldQty : 0;
-      const newQty = heldQty + qty;
-      const newCostValue = oldCost + amount;
-      const newAvg = newQty > EPS ? newCostValue / newQty : price;
-
-      // แนวรับที่ใกล้ที่สุดที่อยู่ใต้ราคาปัจจุบัน
-      const below = (supportsBySymbol.get(c.sym) ?? [])
-        .filter((p) => p < price)
-        .sort((a, b) => b - a);
-      const nearestSupport = below[0] ?? null;
-
-      buys.push({
-        symbol: c.sym,
-        name: c.pos?.name ?? extraQuotes.get(c.sym)?.shortName ?? null,
-        groupKey: g.key,
-        groupLabel: g.label,
-        amount,
-        price,
-        quantity: qty,
-        heldQuantity: heldQty,
-        currentAvgCost: avg,
-        vsAvgCostPct: avg && avg > EPS ? ((price - avg) / avg) * 100 : null,
-        newAvgCost: newAvg,
-        avgCostChangePct: avg && avg > EPS ? ((newAvg - avg) / avg) * 100 : null,
-        newQuantity: newQty,
-        newCostValue,
-        nearestSupport,
-        supportDistancePct:
-          nearestSupport !== null ? ((price - nearestSupport) / price) * 100 : null,
-        weightNow: potAfter > EPS ? ((c.pos?.marketValue ?? 0) / potAfter) * 100 : 0,
-        weightTarget: potAfter > EPS ? (perSymbolTarget / potAfter) * 100 : 0,
-      });
+  for (const s of slots) {
+    const pos = posBySymbol.get(s.symbol);
+    const quoted = extraQuotes.get(s.symbol)?.price ?? null;
+    const price = pos?.price ?? quoted ?? null;
+    if (!price || price <= 0) {
+      warnings.push(`${s.symbol}: ดึงราคาล่าสุดไม่ได้ เลยคำนวณจำนวนหุ้นไม่ได้ (ข้ามตัวนี้)`);
+      continue;
     }
+
+    const heldQty = pos?.quantity ?? 0;
+    const avg = pos && heldQty > EPS ? pos.avgCost : null;
+    const qty = s.amount / price;
+    const oldCost = avg !== null ? avg * heldQty : 0;
+    const newQty = heldQty + qty;
+    const newCostValue = oldCost + s.amount;
+    const newAvg = newQty > EPS ? newCostValue / newQty : price;
+    const below = (supportsBySymbol.get(s.symbol) ?? [])
+      .filter((p) => p < price)
+      .sort((a, b) => b - a);
+    const nearestSupport = below[0] ?? null;
+
+    buys.push({
+      symbol: s.symbol,
+      name: pos?.name ?? extraQuotes.get(s.symbol)?.shortName ?? null,
+      groupKey: s.groupKey,
+      groupLabel: s.groupLabel,
+      amount: s.amount,
+      price,
+      quantity: qty,
+      heldQuantity: heldQty,
+      currentAvgCost: avg,
+      vsAvgCostPct: avg && avg > EPS ? ((price - avg) / avg) * 100 : null,
+      newAvgCost: newAvg,
+      avgCostChangePct: avg && avg > EPS ? ((newAvg - avg) / avg) * 100 : null,
+      newQuantity: newQty,
+      newCostValue,
+      nearestSupport,
+      supportDistancePct:
+        nearestSupport !== null ? ((price - nearestSupport) / price) * 100 : null,
+      weightNow: potAfter > EPS ? ((pos?.marketValue ?? 0) / potAfter) * 100 : 0,
+      weightTarget: s.aimPct,
+    });
   }
 
   buys.sort((a, b) => b.amount - a.amount);
 
-  // ── 4. สัดส่วนหลังลงเงินตามแผน ──
   const addedByGroup = new Map<string, number>();
   for (const b of buys) addedByGroup.set(b.groupKey, (addedByGroup.get(b.groupKey) ?? 0) + b.amount);
-  for (const g of planGroups) {
-    const after = g.marketValue + (addedByGroup.get(g.key) ?? 0);
-    g.actualPctAfter = potAfter > EPS ? (after / potAfter) * 100 : 0;
-  }
-
   const allocatedReal = buys.reduce((a, b) => a + b.amount, 0);
+  const unspent = budget - allocatedReal;
 
   return {
     currency,
     budget,
     allocated: allocatedReal,
-    leftover: budget - allocatedReal,
+    leftover: unspent,
     buys,
-    groups: planGroups.map((g) => ({
-      key: g.key,
-      label: g.label,
-      color: g.color,
-      targetPct: g.targetPct,
-      actualPctNow: g.actualPctNow,
-      actualPctAfter: g.actualPctAfter,
-      gap: g.gap,
-      allocated: addedByGroup.get(g.key) ?? 0,
-    })),
+    groups: view.groups.map((g) => {
+      const added = g.isOther ? 0 : addedByGroup.get(g.key) ?? 0;
+      // เงินที่ไม่ได้ใช้ซื้อ คงอยู่ในหมวดเงินสด
+      const afterValue = g.isOther ? g.marketValue + unspent : g.marketValue + added;
+      return {
+        key: g.key,
+        label: g.label,
+        color: g.color,
+        targetPct: g.targetPct,
+        targetLabel: g.bandLabel,
+        actualPctNow: g.actualPct,
+        actualPctAfter: potAfter > EPS ? (afterValue / potAfter) * 100 : 0,
+        gap: (g.targetPct / 100) * potAfter - g.marketValue,
+        allocated: added,
+        isCore: g.isCore,
+      };
+    }),
     totals: { marketValueNow, cash, potAfter },
     warnings,
   };

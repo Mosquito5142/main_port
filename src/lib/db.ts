@@ -143,13 +143,21 @@ CREATE TABLE IF NOT EXISTS gp_target_groups (
   sort_order   INTEGER NOT NULL DEFAULT 0,
   is_other     INTEGER NOT NULL DEFAULT 0,
   is_core      INTEGER NOT NULL DEFAULT 0,
+  -- กรอบเป้าของหมวด (null = แผนเก่าที่ใช้แค่ target_pct) · hint เป็นรหัสสั้น เช่น no_avg
+  target_min   REAL,
+  target_max   REAL,
+  hint         TEXT,
   updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (portfolio_id, key)
 );
 CREATE TABLE IF NOT EXISTS gp_group_symbols (
-  id       INTEGER PRIMARY KEY AUTOINCREMENT,
-  group_id INTEGER NOT NULL REFERENCES gp_target_groups(id) ON DELETE CASCADE,
-  symbol   TEXT NOT NULL
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id   INTEGER NOT NULL REFERENCES gp_target_groups(id) ON DELETE CASCADE,
+  symbol     TEXT NOT NULL,
+  target_pct REAL,
+  target_min REAL,
+  target_max REAL,
+  hint       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_gp_group_symbols_group ON gp_group_symbols(group_id);
 CREATE INDEX IF NOT EXISTS idx_gp_group_symbols_symbol ON gp_group_symbols(symbol);
@@ -177,6 +185,26 @@ const REQUIRED_TABLES = [
   'gp_target_groups',
   'gp_group_symbols',
 ];
+
+/** เพิ่มคอลัมน์กรอบเป้า/hint ถ้าฐานเดิมยังไม่มี — ALTER ซ้ำแล้วจะถูกข้าม */
+async function ensureAllocationColumns() {
+  const alters = [
+    `ALTER TABLE gp_target_groups ADD COLUMN target_min REAL`,
+    `ALTER TABLE gp_target_groups ADD COLUMN target_max REAL`,
+    `ALTER TABLE gp_target_groups ADD COLUMN hint TEXT`,
+    `ALTER TABLE gp_group_symbols ADD COLUMN target_pct REAL`,
+    `ALTER TABLE gp_group_symbols ADD COLUMN target_min REAL`,
+    `ALTER TABLE gp_group_symbols ADD COLUMN target_max REAL`,
+    `ALTER TABLE gp_group_symbols ADD COLUMN hint TEXT`,
+  ];
+  for (const sql of alters) {
+    try {
+      await db().execute(sql);
+    } catch {
+      // มีคอลัมน์อยู่แล้ว
+    }
+  }
+}
 
 function ensureSchema(): Promise<void> {
   if (!global.__greenport_schema_ready) {
@@ -215,6 +243,7 @@ function ensureSchema(): Promise<void> {
         } catch {
           // ถ้ามีคอลัมน์อยู่แล้ว SQLite จะ error ก็ข้ามไป (ไม่ backfill ซ้ำ กันทับค่าที่ผู้ใช้แก้เองไปแล้ว)
         }
+        await ensureAllocationColumns();
         return;
       }
 
@@ -222,6 +251,7 @@ function ensureSchema(): Promise<void> {
         .map((s) => s.trim())
         .filter(Boolean);
       await db().batch(stmts, 'write');
+      await ensureAllocationColumns();
     })().catch((err) => {
       global.__greenport_schema_ready = undefined;
       throw err;

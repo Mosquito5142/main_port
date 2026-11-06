@@ -53,6 +53,7 @@ export default async function DashboardPage({
   const t = view.totals;
   const positions = view.positions;
   const closed = view.closed;
+  const cashGroup = view.groups.find((g) => g.isOther);
 
   const movers = [...positions]
     .filter((p) => p.changePercent !== null && p.quantity > 0)
@@ -194,10 +195,10 @@ export default async function DashboardPage({
                 <div key={p.stock_id} className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-forest">{p.symbol}</span>
                   <span className="tabular-nums text-forest/60">
-                    {p.weight.toFixed(2)}%
-                    {p.targetPercent !== null && (
-                      <span className="ml-1 text-forest/35">/ เป้า {p.targetPercent.toFixed(0)}%</span>
-                    )}
+                    {(p.portPct ?? p.weight).toFixed(1)}%
+                    {p.targetLabel ? (
+                      <span className="ml-1 text-forest/35">/ {p.targetLabel}</span>
+                    ) : null}
                   </span>
                 </div>
               ))}
@@ -321,6 +322,9 @@ export default async function DashboardPage({
             currency={fx.code}
             cash={t.cash}
             netWorth={t.netWorth}
+            cashBand={
+              cashGroup ? { label: cashGroup.bandLabel, status: cashGroup.status } : null
+            }
           />
         )}
       </section>
