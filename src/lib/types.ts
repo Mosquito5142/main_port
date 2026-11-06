@@ -79,10 +79,18 @@ export interface Position {
   marketValue: number;
   unrealizedPnl: number;
   unrealizedPct: number | null;
-  weight: number; // % ของมูลค่าหุ้นรวม
+  weight: number; // % ของมูลค่าหุ้นรวม (ไม่รวมเงินสด)
+  /** % ของพอร์ตรวม (หุ้น + เงินสด) — ฐานเดียวกับกรอบเป้า */
+  portPct?: number;
   targetPercent: number | null;
-  diffPercent: number | null; // weight - target
-  actionAmount: number; // จำนวนเงินที่ต้องซื้อ(+)/ขาย(-) เพื่อเข้าเป้า
+  /** ข้อความกรอบเป้า เช่น "12–15%" หรือ "≤3%" */
+  targetLabel?: string | null;
+  /** สถานะเทียบกรอบ: ต่ำเป้า / เกินเป้า / พอดี */
+  bandStatus?: 'under' | 'over' | 'ok' | null;
+  /** รหัส hint สั้น ๆ: no_new | wait_earn | no_avg */
+  hint?: string | null;
+  diffPercent: number | null; // สัดส่วนพอร์ต - เป้ากลาง
+  actionAmount: number; // จำนวนเงินที่ต้องซื้อ(+)/ขาย(-) เพื่อเข้าขอบกรอบ
   changePercent: number | null;
   isCore?: boolean;
 }

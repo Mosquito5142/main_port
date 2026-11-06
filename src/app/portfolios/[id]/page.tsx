@@ -7,6 +7,7 @@ import PositionsTable from '@/components/PositionsTable';
 import TradesTable from '@/components/TradesTable';
 import ClosedPositions from '@/components/ClosedPositions';
 import TargetGroupEditor, { type EditableGroup } from '@/components/TargetGroupEditor';
+import GroupAllocationList from '@/components/GroupAllocationList';
 import PortfolioActions from '@/components/PortfolioActions';
 import { getFx } from '@/lib/currency';
 import AllocationChart from '@/components/charts/AllocationChart';
@@ -32,12 +33,23 @@ export default async function PortfolioDetailPage({
   const view = applyFx(raw, fx);
   const { portfolio: p, positions, closed, totals: t } = view;
 
+  const cashGroup = view.groups.find((g) => g.isOther);
   const groupRows: EditableGroup[] = view.groups.map((g) => ({
     key: g.key,
     label: g.label,
     targetPct: g.baseTargetPct ?? g.targetPct,
+    targetMin: g.targetMin,
+    targetMax: g.targetMax,
+    hint: g.hint,
     color: g.color,
     symbols: g.symbols,
+    members: g.members.map((m) => ({
+      symbol: m.symbol,
+      targetPct: m.targetPct,
+      targetMin: m.targetMin,
+      targetMax: m.targetMax,
+      hint: m.hint,
+    })),
     isOther: g.isOther,
     isCore: g.isCore,
     actualPct: g.actualPct,
@@ -89,15 +101,9 @@ export default async function PortfolioDetailPage({
           sub={`เงินสด ${fmtMoney(t.cash, 0)}`}
         />
         <Stat
-          label="เป้าหมายที่ตั้งไว้รวม"
-          value={`${t.targetSum.toFixed(2)}%`}
-          sub={
-            Math.abs(t.targetSum - 100) < 0.01
-              ? 'ครบ 100% แล้ว'
-              : t.targetSum > 100
-                ? 'เกิน 100%'
-                : `ยังเหลืออีก ${(100 - t.targetSum).toFixed(2)}%`
-          }
+          label="เป้ากลางรวม"
+          value={`${t.targetSum.toFixed(0)}%`}
+          sub="กรอบแต่ละหมวดเหลื่อมกันได้ ไม่ต้องบวกเป็น 100"
         />
       </div>
 
@@ -147,12 +153,20 @@ export default async function PortfolioDetailPage({
           />
         </Card>
 
-        <Card title="สัดส่วนเป้าหมายรายหมวด" className="lg:col-span-2">
-          <TargetGroupEditor
-            portfolioId={p.id}
-            initial={groupRows}
-            currency={p.currency}
-          />
+        <Card title="สัดส่วนเทียบเป้า" className="lg:col-span-2">
+          <GroupAllocationList groups={view.groups} currency={fx.code} />
+          <details className="mt-4 rounded-xl border border-leaf/70 bg-surface/40 px-3 py-2">
+            <summary className="cursor-pointer text-sm font-semibold text-forest/70">
+              ปรับตัวเลขเป้า
+            </summary>
+            <div className="pt-3">
+              <TargetGroupEditor
+                portfolioId={p.id}
+                initial={groupRows}
+                currency={p.currency}
+              />
+            </div>
+          </details>
         </Card>
       </div>
 
@@ -171,9 +185,12 @@ export default async function PortfolioDetailPage({
         ) : (
           <PositionsTable
             positions={positions}
-            currency={p.currency}
+            currency={fx.code}
             cash={t.cash}
             netWorth={t.netWorth}
+            cashBand={
+              cashGroup ? { label: cashGroup.bandLabel, status: cashGroup.status } : null
+            }
           />
         )}
       </section>

@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   }
 }
 
-/** บันทึกหมวดทั้งชุด: { portfolio_id, groups: [{key,label,targetPct,color,symbols}] } */
+/** บันทึกหมวดทั้งชุด รวมกรอบ min–max, hint และเป้ารายตัว */
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
@@ -39,57 +39,82 @@ export async function PUT(req: Request) {
       if (seenKeys.has(key)) return fail(`มีหมวดซ้ำกัน: ${key}`);
       seenKeys.add(key);
 
-      const pct = num(g.targetPct, 0) ?? 0;
+      const targetMin = num(g.targetMin, null);
+      const targetMax = num(g.targetMax, null);
+      if (targetMin != null && targetMin < 0) return fail(`กรอบของ "${label}" ติดลบไม่ได้`);
+      if (targetMax != null && targetMax < 0) return fail(`กรอบของ "${label}" ติดลบไม่ได้`);
+      if (targetMin != null && targetMax != null && targetMin > targetMax + 0.001) {
+        return fail(`กรอบของ "${label}" สลับกัน (${targetMin}–${targetMax})`);
+      }
+
+      let pct = num(g.targetPct, 0) ?? 0;
       if (pct < 0) return fail(`สัดส่วนของ "${label}" ติดลบไม่ได้`);
+      // เพดานอย่างเดียว (min 0) ไม่ดันเป้ากลางขึ้นไปกลางช่วง — กันแผนไล่ซื้อให้เต็มเพดาน
+      if (targetMin != null && targetMax != null) {
+        if (targetMin <= 0) {
+          if (pct > targetMax) pct = 0;
+        } else if (pct < targetMin || pct > targetMax) {
+          pct = Math.round(((targetMin + targetMax) / 2) * 10) / 10;
+        }
+      }
 
       const isOther = Boolean(g.isOther) || key === OTHER_KEY;
       const isCore = Boolean(g.isCore);
+      const memberBySym = new Map<string, any>();
+      for (const rawMember of Array.isArray(g.members) ? g.members : []) {
+        const sym = String(rawMember?.symbol || '').toUpperCase().trim();
+        if (sym) memberBySym.set(sym, rawMember);
+      }
+
       const symbols: string[] = [];
-      for (const s of Array.isArray(g.symbols) ? g.symbols : []) {
+      const symbolSource: unknown[] = Array.isArray(g.symbols) ? g.symbols : [...memberBySym.keys()];
+      for (const s of symbolSource) {
         const sym = String(s || '').toUpperCase().trim();
-        if (!sym) continue;
-        // หุ้นตัวเดียวอยู่ได้หมวดเดียว ไม่งั้นสัดส่วนจะนับซ้ำ
+        if (!sym || symbols.includes(sym)) continue;
         const owner = seenSymbols.get(sym);
         if (owner) return fail(`${sym} อยู่ทั้งหมวด "${owner}" และ "${label}" — เลือกหมวดเดียว`);
         seenSymbols.set(sym, label);
         symbols.push(sym);
       }
-      if (!isOther && !isCore && symbols.length === 0 && pct > 0) {
-        return fail(`หมวด "${label}" ตั้งเป้า ${pct}% แต่ยังไม่ได้ใส่หุ้น`);
+      if (!isOther && symbols.length === 0 && (pct > 0 || (targetMax ?? 0) > 0)) {
+        return fail(`หมวด "${label}" ตั้งเป้าไว้แต่ยังไม่ได้ใส่หุ้น`);
       }
-      if (isCore && symbols.length === 0) {
-        return fail(`หมวดแกนหลัก "${label}" ต้องมีหุ้นอย่างน้อย 1 ตัว`);
-      }
+
+      const members = symbols.map((sym) => {
+        const src = memberBySym.get(sym);
+        return {
+          symbol: sym,
+          targetPct: src ? num(src.targetPct, null) : null,
+          targetMin: src ? num(src.targetMin, null) : null,
+          targetMax: src ? num(src.targetMax, null) : null,
+          hint: src ? str(src.hint) : null,
+        };
+      });
 
       groups.push({
         key,
         label,
         targetPct: pct,
+        targetMin,
+        targetMax,
+        hint: str(g.hint),
         color: str(g.color) ?? '#66BB6A',
         sortOrder: 0,
         isOther,
         isCore,
         symbols,
+        members,
       });
     }
 
-    const hasCore = groups.some((g) => g.isCore);
+    // ตรวจผลรวมของเป้ากลาง ไม่ใช่ผลรวมของเพดาน (กรอบเหลื่อมกันได้)
     const total = groups.reduce((a, g) => a + g.targetPct, 0);
-    const satelliteTotal = groups
-      .filter((g) => !g.isCore)
-      .reduce((a, g) => a + g.targetPct, 0);
-
-    if (!hasCore && total > 100.0001) {
-      return fail(`สัดส่วนรวมเกิน 100% (ตอนนี้ ${total.toFixed(2)}%)`);
-    }
-    if (hasCore && satelliteTotal > 100.0001) {
-      return fail(
-        `สัดส่วนรวมของกลุ่มดาวบริวารเกิน 100% (ตอนนี้ ${satelliteTotal.toFixed(2)}%)`
-      );
+    if (total > 100.0001) {
+      return fail(`เป้ากลางรวมเกิน 100% (ตอนนี้ ${total.toFixed(2)}%)`);
     }
 
     await saveTargetGroups(pid, groups);
-    return ok({ saved: groups.length, total: hasCore ? satelliteTotal : total });
+    return ok({ saved: groups.length, total });
   } catch (err) {
     return handle(err);
   }
